@@ -71,7 +71,7 @@ export function ProyeccionesModule() {
     if (escenarios.length === 0) return []
     const base = escenarios[0]
     const gdpValues = [0.6, 0.8, 1.0, 1.2, 1.4]
-    const costValues = [50, 65, 80, 95, 110]
+    const costValues = [2000, 2500, 3000, 3500, 4000]
 
     return gdpValues.map((gdp) => {
       const row: Record<string, number | string> = { gdp: `${gdp} kg/d` }
@@ -80,8 +80,8 @@ export function ProyeccionesModule() {
         const dias = Math.ceil(kgNec / gdp)
         const costoTotal = dias * costo
         const ingreso = base.pesoObjetivo * base.precioVentaEsperado
-        const utilidad = ingreso - costoTotal - base.pesoInicial * 1200
-        row[`$${costo}`] = utilidad
+        const utilidad = ingreso - costoTotal - base.pesoInicial * 2500
+        row[`₡${costo}`] = utilidad
       }
       return row
     })
@@ -237,18 +237,18 @@ export function ProyeccionesModule() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="font-medium">GDP / Costo día</TableHead>
-                    <TableHead className="text-right">$50</TableHead>
-                    <TableHead className="text-right">$65</TableHead>
-                    <TableHead className="text-right">$80</TableHead>
-                    <TableHead className="text-right">$95</TableHead>
-                    <TableHead className="text-right">$110</TableHead>
+                    <TableHead className="text-right">₡2,000</TableHead>
+                    <TableHead className="text-right">₡2,500</TableHead>
+                    <TableHead className="text-right">₡3,000</TableHead>
+                    <TableHead className="text-right">₡3,500</TableHead>
+                    <TableHead className="text-right">₡4,000</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sensitivityData.map((row) => (
                     <TableRow key={row.gdp as string}>
                       <TableCell className="font-medium">{row.gdp as string}</TableCell>
-                      {["$50", "$65", "$80", "$95", "$110"].map((key) => {
+                      {["₡2000", "₡2500", "₡3000", "₡3500", "₡4000"].map((key) => {
                         const val = row[key] as number
                         return (
                           <TableCell key={key} className="text-right">

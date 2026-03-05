@@ -117,14 +117,14 @@ export function UtilidadModule() {
       const diasEnFinca = Math.round(
         (new Date(venta.fechaVenta).getTime() - new Date(animal.fechaIngreso).getTime()) / (1000 * 60 * 60 * 24)
       )
-      const costoAlimentacionDiario = 75 // estimated
+      const costoAlimentacionDiario = 2000 // CRC estimado
       const costoAlimentacion = diasEnFinca * costoAlimentacionDiario
 
       // Costo sanidad estimado
       const eventosSanidad = eventos.filter(
         (ev: EventoSanitario) => ev.animalId === animal.id || ev.lote === animal.lote
       )
-      const costoSanidad = eventosSanidad.length * 1500
+      const costoSanidad = eventosSanidad.length * 8000
 
       const costoTotal = costoCompra + costoAlimentacion + costoSanidad + venta.costosSalida
       const utilidadNeta = ingresoNeto - costoTotal

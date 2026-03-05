@@ -157,12 +157,12 @@ export function SanidadModule() {
     const costosPorAnimal: Record<string, number> = {}
     for (const ev of eventos) {
       if (ev.animalId) {
-        costosPorAnimal[ev.animalId] = (costosPorAnimal[ev.animalId] || 0) + 1500 // estimated cost per event
+        costosPorAnimal[ev.animalId] = (costosPorAnimal[ev.animalId] || 0) + 8000 // CRC estimado por evento
       }
       if (ev.lote) {
         const animalesLote = animales.filter((a) => a.lote === ev.lote)
         for (const a of animalesLote) {
-          costosPorAnimal[a.id] = (costosPorAnimal[a.id] || 0) + 1500
+          costosPorAnimal[a.id] = (costosPorAnimal[a.id] || 0) + 8000
         }
       }
     }
