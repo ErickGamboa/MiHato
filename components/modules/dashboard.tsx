@@ -1,6 +1,4 @@
 "use client"
-
-import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -17,16 +15,14 @@ import {
   type Insumo,
   type Racion,
   type EventoSanitario,
+  type MedicamentoStock,
   calcGDP,
   formatCurrency,
   formatNumber,
   getStatusColor,
-  getAnimales,
-  getPesajes,
-  getInsumos,
-  getRaciones,
-  getEventosSanitarios,
+  getAlertasDashboard,
 } from "@/lib/data"
+import { AlertCircle, Syringe, Package, Scale as ScaleIcon } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -39,38 +35,10 @@ import {
   Pie,
   Cell,
 } from "recharts"
+import { useDataStore } from "@/hooks/use-data-store"
 
 export function DashboardModule() {
-  const [animales, setAnimales] = useState<Animal[]>([])
-  const [pesajes, setPesajes] = useState<Pesaje[]>([])
-  const [insumos, setInsumos] = useState<Insumo[]>([])
-  const [raciones, setRaciones] = useState<Racion[]>([])
-  const [eventos, setEventos] = useState<EventoSanitario[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [a, p, i, r, e] = await Promise.all([
-          getAnimales(),
-          getPesajes(),
-          getInsumos(),
-          getRaciones(),
-          getEventosSanitarios(),
-        ])
-        setAnimales(a)
-        setPesajes(p)
-        setInsumos(i)
-        setRaciones(r)
-        setEventos(e)
-      } catch (err) {
-        console.error("Error loading data:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
+  const { animales, pesajes, insumos, raciones, eventos, medicamentos, loading } = useDataStore()
 
   if (loading) {
     return <div className="flex items-center justify-center p-8">Cargando datos...</div>
@@ -106,6 +74,9 @@ export function DashboardModule() {
 
   const alerts: { tipo: string; mensaje: string; severity: "warning" | "destructive" | "default" }[] = []
   const hoy = new Date()
+
+  // Alertas consolidadas
+  const alertas = getAlertasDashboard(animales, pesajes, eventos, medicamentos, insumos)
 
   for (const ev of eventos) {
     if (ev.fechaFinRetiro && new Date(ev.fechaFinRetiro) > hoy) {
@@ -175,7 +146,7 @@ export function DashboardModule() {
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-chart-2/20">
-              <Scale className="h-6 w-6 text-chart-2" />
+              <ScaleIcon className="h-6 w-6 text-chart-2" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">GDP Promedio</p>
@@ -214,6 +185,76 @@ export function DashboardModule() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Alertas */}
+      {(alerts.length > 0 || alertas.countAnimales > 0) && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-amber-800">
+              <AlertCircle className="h-5 w-5" />
+              Alertas del Sistema
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
+              {alertas.countEstancados > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-amber-100 p-3 text-amber-800">
+                  <ScaleIcon className="h-5 w-5" />
+                  <div>
+                    <p className="text-2xl font-bold">{alertas.countEstancados}</p>
+                    <p className="text-xs">Animales estancados</p>
+                  </div>
+                </div>
+              )}
+              {alertas.countPerdaPeso > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-red-100 p-3 text-red-800">
+                  <AlertCircle className="h-5 w-5" />
+                  <div>
+                    <p className="text-2xl font-bold">{alertas.countPerdaPeso}</p>
+                    <p className="text-xs">Pérdida de peso</p>
+                  </div>
+                </div>
+              )}
+              {alertas.countRetirosActivos > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-orange-100 p-3 text-orange-800">
+                  <Syringe className="h-5 w-5" />
+                  <div>
+                    <p className="text-2xl font-bold">{alertas.countRetirosActivos}</p>
+                    <p className="text-xs">Retiros activos</p>
+                  </div>
+                </div>
+              )}
+              {alertas.countMedsBajoStock > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-purple-100 p-3 text-purple-800">
+                  <Syringe className="h-5 w-5" />
+                  <div>
+                    <p className="text-2xl font-bold">{alertas.countMedsBajoStock}</p>
+                    <p className="text-xs">Medicamentos bajo stock</p>
+                  </div>
+                </div>
+              )}
+              {alertas.countInsumosBajoStock > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-blue-100 p-3 text-blue-800">
+                  <Package className="h-5 w-5" />
+                  <div>
+                    <p className="text-2xl font-bold">{alertas.countInsumosBajoStock}</p>
+                    <p className="text-xs">Insumos bajo stock</p>
+                  </div>
+                </div>
+              )}
+              {alertas.countMedsVencimientoProximo > 0 && (
+                <div className="flex items-center gap-2 rounded-lg bg-red-100 p-3 text-red-800">
+                  <AlertCircle className="h-5 w-5" />
+                  <div>
+                    <p className="text-2xl font-bold">{alertas.countMedsVencimientoProximo}</p>
+                    <p className="text-xs">Meds por vencer</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,39 +28,17 @@ import {
   type Animal,
   type Insumo,
   type Racion,
-  getAnimales,
-  getInsumos,
-  getRaciones,
   formatCurrency,
   formatNumber,
-  insertInsumo,
 } from "@/lib/data"
+import { useDataStore } from "@/hooks/use-data-store"
 
 export function SuplementacionModule() {
-  const [animales, setAnimales] = useState<Animal[]>([])
-  const [insumos, setInsumos] = useState<Insumo[]>([])
-  const [raciones, setRaciones] = useState<Racion[]>([])
-  const [loading, setLoading] = useState(true)
+  const { animales, insumos, raciones, loading, createInsumo } = useDataStore()
   const [showNewInsumo, setShowNewInsumo] = useState(false)
   const [newInsumo, setNewInsumo] = useState({
     nombre: "", precio: "", presentacion: "", costoPorKg: "", stock: "", unidad: "kg",
   })
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [a, i, r] = await Promise.all([getAnimales(), getInsumos(), getRaciones()])
-        setAnimales(a)
-        setInsumos(i)
-        setRaciones(r)
-      } catch (err) {
-        console.error("Error loading data:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
 
   const animalesActivos = animales.filter((a) => a.estado === "activo")
 
@@ -130,14 +108,8 @@ export function SuplementacionModule() {
       stock: Number.parseFloat(newInsumo.stock),
       unidad: newInsumo.unidad,
     }
-    try {
-      await insertInsumo(ins)
-      setInsumos([...insumos, ins])
-      setShowNewInsumo(false)
-    } catch (err) {
-      console.error("Error inserting insumo:", err)
-      alert("Error al registrar insumo")
-    }
+    createInsumo(ins)
+    setShowNewInsumo(false)
     setNewInsumo({ nombre: "", precio: "", presentacion: "", costoPorKg: "", stock: "", unidad: "kg" })
   }
 

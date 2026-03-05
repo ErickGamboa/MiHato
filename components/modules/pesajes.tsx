@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,13 +29,9 @@ import {
   formatNumber,
   calcGDP,
   getLotes,
-  getAnimales,
-  getPesajes,
-  insertPesaje,
+  getAnimalesConProblemas,
 } from "@/lib/data"
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -44,29 +40,13 @@ import {
   BarChart,
   Bar,
 } from "recharts"
+import { useDataStore } from "@/hooks/use-data-store"
 
 export function PesajesModule() {
-  const [animales, setAnimales] = useState<Animal[]>([])
-  const [pesajes, setPesajes] = useState<Pesaje[]>([])
-  const [loading, setLoading] = useState(true)
+  const { animales, pesajes, loading, createPesaje } = useDataStore()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [filterLote, setFilterLote] = useState<string>("todos")
   const [newForm, setNewForm] = useState({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", suplementacion: "" })
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [a, p] = await Promise.all([getAnimales(), getPesajes()])
-        setAnimales(a)
-        setPesajes(p)
-      } catch (err) {
-        console.error("Error loading data:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
 
   const animalesActivos = animales.filter((a) => a.estado === "activo")
   const lotes = getLotes(animales)
@@ -147,15 +127,9 @@ export function PesajesModule() {
       peso: Number.parseFloat(newForm.peso),
       suplementacion: newForm.suplementacion || undefined,
     }
-    try {
-      await insertPesaje(newP)
-      setPesajes([...pesajes, newP])
-      setShowNewDialog(false)
-      setNewForm({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", suplementacion: "" })
-    } catch (err) {
-      console.error("Error inserting pesaje:", err)
-      alert("Error al registrar pesaje")
-    }
+    createPesaje(newP)
+    setShowNewDialog(false)
+    setNewForm({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", suplementacion: "" })
   }
 
   if (loading) {
@@ -164,6 +138,36 @@ export function PesajesModule() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Alertas de pesaje */}
+      {(() => {
+        const { estancados, perdaPeso } = getAnimalesConProblemas(animales, pesajes)
+        if (estancados.length === 0 && perdaPeso.length === 0) return null
+        return (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="flex flex-col gap-2 p-4">
+              <div className="flex items-center gap-2 text-amber-800">
+                <AlertTriangle className="h-5 w-5" />
+                <span className="font-medium">Alertas de Desempeño</span>
+              </div>
+              <div className="flex flex-wrap gap-4 text-sm">
+                {perdaPeso.length > 0 && (
+                  <div className="flex items-center gap-1 text-red-700">
+                    <TrendingDown className="h-4 w-4" />
+                    <span>{perdaPeso.length} animal(es) con pérdida de peso</span>
+                  </div>
+                )}
+                {estancados.length > 0 && (
+                  <div className="flex items-center gap-1 text-orange-700">
+                    <Minus className="h-4 w-4" />
+                    <span>{estancados.length} animal(es) estancados (sin ganancia &gt;30 días)</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })()}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-foreground">Pesajes y Desempeño</h3>

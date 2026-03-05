@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,18 +30,12 @@ import {
   type EventoSanitario,
   type Racion,
   type Insumo,
-  getAnimales,
-  getVentas,
-  getPesajes,
-  getEventosSanitarios,
-  getRaciones,
-  getInsumos,
   formatCurrency,
   formatNumber,
   getUltimoPeso,
   calcGDP,
   getStatusColor,
-  insertVenta,
+  hasActiveRetiro,
 } from "@/lib/data"
 import {
   BarChart,
@@ -52,54 +46,18 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
+import { useDataStore } from "@/hooks/use-data-store"
 
 export function UtilidadModule() {
-  const [animales, setAnimales] = useState<Animal[]>([])
-  const [ventas, setVentas] = useState<Venta[]>([])
-  const [pesajes, setPesajes] = useState<Pesaje[]>([])
-  const [eventos, setEventos] = useState<EventoSanitario[]>([])
-  const [raciones, setRaciones] = useState<Racion[]>([])
-  const [insumos, setInsumos] = useState<Insumo[]>([])
-  const [loading, setLoading] = useState(true)
+  const { animales, ventas, pesajes, eventos, raciones, insumos, loading, createVenta } = useDataStore()
   const [showNewVenta, setShowNewVenta] = useState(false)
   const [newVenta, setNewVenta] = useState({
     animalId: "", fechaVenta: new Date().toISOString().split("T")[0], canalVenta: "",
     pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0",
   })
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [a, v, p, e, r, i] = await Promise.all([
-          getAnimales(), getVentas(), getPesajes(), getEventosSanitarios(), getRaciones(), getInsumos()
-        ])
-        setAnimales(a)
-        setVentas(v)
-        setPesajes(p)
-        setEventos(e)
-        setRaciones(r)
-        setInsumos(i)
-      } catch (err) {
-        console.error("Error loading data:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
-
   const animalesVendidos = animales.filter((a) => a.estado === "vendido")
   const animalesActivos = animales.filter((a) => a.estado === "activo")
-
-  // Check retiro activo
-  const hasRetiroActivo = (animalId: string) => {
-    return eventos.some(
-      (ev) =>
-        ev.animalId === animalId &&
-        ev.fechaFinRetiro &&
-        new Date(ev.fechaFinRetiro) > new Date()
-    )
-  }
 
   // Calculate profitability per sold animal
   const ventaCalcs = useMemo(() => {
@@ -179,13 +137,13 @@ export function UtilidadModule() {
       alert("Complete los campos obligatorios: animal, fecha, peso y precio/kg.")
       return
     }
-    if (hasRetiroActivo(newVenta.animalId)) {
+    if (hasActiveRetiro(eventos, newVenta.animalId)) {
       alert("Este animal tiene un retiro sanitario activo. No se puede registrar la venta.")
       return
     }
 
     const v: Venta = {
-      id: `VTA-${String(ventas.length + 1).padStart(3, "0")}`,
+      id: "",
       animalId: newVenta.animalId,
       fechaVenta: newVenta.fechaVenta,
       canalVenta: newVenta.canalVenta,
@@ -194,14 +152,8 @@ export function UtilidadModule() {
       costosSalida: Number.parseFloat(newVenta.costosSalida) || 0,
       merma: Number.parseFloat(newVenta.merma) || 0,
     }
-    try {
-      await insertVenta(v)
-      setVentas([...ventas, v])
-      setShowNewVenta(false)
-    } catch (err) {
-      console.error("Error inserting venta:", err)
-      alert("Error al registrar venta")
-    }
+    createVenta(v)
+    setShowNewVenta(false)
     setNewVenta({ animalId: "", fechaVenta: new Date().toISOString().split("T")[0], canalVenta: "", pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0" })
   }
 
@@ -234,7 +186,7 @@ export function UtilidadModule() {
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent>
                     {animalesActivos.map((a) => {
-                      const retiro = hasRetiroActivo(a.id)
+                      const retiro = hasActiveRetiro(eventos, a.id)
                       return (
                         <SelectItem key={a.id} value={a.id} disabled={retiro}>
                           {a.id} - {a.apodo || a.raza} {retiro ? "(Retiro activo)" : ""}

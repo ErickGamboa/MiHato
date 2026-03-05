@@ -1,5 +1,3 @@
-import { supabase } from './supabase'
-
 export type AnimalStatus = "activo" | "vendido" | "muerto" | "descartado"
 export type Gender = "macho" | "hembra"
 export type Procedencia = "finca" | "subasta"
@@ -29,6 +27,7 @@ export interface Animal {
 
 export interface LotMovement {
   id: string
+  animalId?: string
   fecha: string
   loteOrigen: string
   loteDestino: string
@@ -37,6 +36,7 @@ export interface LotMovement {
 
 export interface ChangeRecord {
   id: string
+  animalId?: string
   fecha: string
   campo: string
   valorAnterior: string
@@ -114,305 +114,290 @@ export interface Venta {
   merma: number
 }
 
-const mapAnimal = (row: any): Animal => ({
-  id: row.id,
-  diio: row.diio,
-  idSubasta: row.id_subasta,
-  idFinca: row.id_finca,
-  fierroOrigen: row.fierro_origen,
-  genero: row.genero,
-  raza: row.raza,
-  fechaIngreso: row.fecha_ingreso,
-  procedencia: row.procedencia,
-  pesoIngreso: row.peso_ingreso,
-  apodo: row.apodo,
-  lote: row.lote,
-  precioPorKg: row.precio_por_kg,
-  precioCompra: row.precio_compra,
-  costoTransporte: row.costo_transporte,
-  comision: row.comision,
-  precioTotal: row.precio_total,
-  estado: row.estado,
-  historialLotes: [],
-  historialCambios: [],
-})
+export type CategoriaCosto = "alimentacion" | "sanidad" | "transporte" | "comision" | "otro"
 
-const mapPesaje = (row: any): Pesaje => ({
-  id: row.id,
-  animalId: row.animal_id,
-  fecha: row.fecha,
-  peso: row.peso,
-  suplementacion: row.suplementacion,
-})
-
-const mapInsumo = (row: any): Insumo => ({
-  id: row.id,
-  nombre: row.nombre,
-  precio: row.precio,
-  presentacion: row.presentacion,
-  costoPorKg: row.costo_por_kg,
-  stock: row.stock,
-  unidad: row.unidad,
-})
-
-const mapRacion = (row: any, insumos: any[]): Racion => ({
-  id: row.id,
-  nombre: row.nombre,
-  lote: row.lote,
-  fechaInicio: row.fecha_inicio,
-  fechaFin: row.fecha_fin,
-  insumos: insumos.map(i => ({ insumoId: i.insumo_id, kgPorAnimalDia: i.kg_por_animal_dia })),
-})
-
-const mapEventoSanitario = (row: any): EventoSanitario => ({
-  id: row.id,
-  animalId: row.animal_id,
-  lote: row.lote,
-  fecha: row.fecha,
-  tipo: row.tipo,
-  producto: row.producto,
-  dosis: row.dosis,
-  viaAplicacion: row.via_aplicacion,
-  diagnostico: row.diagnostico,
-  observaciones: row.observaciones,
-  diasRetiro: row.dias_retiro,
-  fechaFinRetiro: row.fecha_fin_retiro,
-})
-
-const mapMedicamento = (row: any): MedicamentoStock => ({
-  id: row.id,
-  nombre: row.nombre,
-  stock: row.stock,
-  unidad: row.unidad,
-  fechaVencimiento: row.fecha_vencimiento,
-})
-
-const mapEscenario = (row: any): Escenario => ({
-  id: row.id,
-  nombre: row.nombre,
-  pesoInicial: row.peso_inicial,
-  pesoObjetivo: row.peso_objetivo,
-  gdpEsperado: row.gdp_esperado,
-  costoDiario: row.costo_diario,
-  precioVentaEsperado: row.precio_venta_esperado,
-})
-
-const mapVenta = (row: any): Venta => ({
-  id: row.id,
-  animalId: row.animal_id,
-  fechaVenta: row.fecha_venta,
-  canalVenta: row.canal_venta,
-  pesoVenta: row.peso_venta,
-  precioPorKg: row.precio_por_kg,
-  costosSalida: row.costos_salida,
-  merma: row.merma,
-})
-
-export async function getAnimales(): Promise<Animal[]> {
-  const { data, error } = await supabase.schema('bovinos').from('animales').select('*').order('id')
-  if (error) throw error
-  return data.map(mapAnimal)
+export interface Costo {
+  id: string
+  animalId?: string
+  lote?: string
+  categoria: CategoriaCosto
+  descripcion: string
+  monto: number
+  fecha: string
 }
 
-export async function getPesajes(): Promise<Pesaje[]> {
-  const { data, error } = await supabase.schema('bovinos').from('pesajes').select('*').order('fecha', { ascending: false })
-  if (error) throw error
-  return data.map(mapPesaje)
+export interface DataSnapshot {
+  animales: Animal[]
+  pesajes: Pesaje[]
+  insumos: Insumo[]
+  raciones: Racion[]
+  eventos: EventoSanitario[]
+  medicamentos: MedicamentoStock[]
+  escenarios: Escenario[]
+  ventas: Venta[]
+  costos: Costo[]
+  lotMovements: LotMovement[]
+  changeRecords: ChangeRecord[]
 }
 
-export async function getInsumos(): Promise<Insumo[]> {
-  const { data, error } = await supabase.schema('bovinos').from('insumos').select('*').order('nombre')
-  if (error) throw error
-  return data.map(mapInsumo)
+export const initialData: DataSnapshot = {
+  animales: [
+    {
+      id: "AN-001",
+      diio: "CR-0001",
+      idSubasta: "SB-9801",
+      fierroOrigen: "El Cacique",
+      genero: "macho",
+      raza: "Brahman",
+      fechaIngreso: "2024-09-05",
+      procedencia: "subasta",
+      pesoIngreso: 280,
+      apodo: "Titan",
+      lote: "L-01",
+      precioPorKg: 1800,
+      precioCompra: 504000,
+      costoTransporte: 25000,
+      comision: 18000,
+      precioTotal: 547000,
+      estado: "activo",
+      historialLotes: [],
+      historialCambios: [],
+    },
+    {
+      id: "AN-002",
+      diio: "CR-0002",
+      idFinca: "FIN-210",
+      fierroOrigen: "Las Brumas",
+      genero: "hembra",
+      raza: "Angus",
+      fechaIngreso: "2024-08-20",
+      procedencia: "finca",
+      pesoIngreso: 260,
+      apodo: "Luna",
+      lote: "L-02",
+      precioPorKg: 1750,
+      precioCompra: 455000,
+      costoTransporte: 18000,
+      comision: 0,
+      precioTotal: 473000,
+      estado: "activo",
+      historialLotes: [],
+      historialCambios: [],
+    },
+    {
+      id: "AN-003",
+      diio: "CR-0003",
+      idSubasta: "SB-9822",
+      fierroOrigen: "Los Lirios",
+      genero: "macho",
+      raza: "Brangus",
+      fechaIngreso: "2024-06-15",
+      procedencia: "subasta",
+      pesoIngreso: 290,
+      apodo: "Rayo",
+      lote: "L-01",
+      precioPorKg: 1820,
+      precioCompra: 527800,
+      costoTransporte: 24000,
+      comision: 17000,
+      precioTotal: 568800,
+      estado: "vendido",
+      historialLotes: [],
+      historialCambios: [],
+    },
+    {
+      id: "AN-004",
+      diio: "CR-0004",
+      idFinca: "FIN-220",
+      fierroOrigen: "Altavista",
+      genero: "hembra",
+      raza: "Gyr",
+      fechaIngreso: "2024-07-10",
+      procedencia: "finca",
+      pesoIngreso: 240,
+      apodo: "Candela",
+      lote: "L-03",
+      precioPorKg: 1680,
+      precioCompra: 403200,
+      costoTransporte: 15000,
+      comision: 0,
+      precioTotal: 418200,
+      estado: "activo",
+      historialLotes: [],
+      historialCambios: [],
+    },
+    {
+      id: "AN-005",
+      diio: "CR-0005",
+      idFinca: "FIN-310",
+      fierroOrigen: "Cordillera",
+      genero: "macho",
+      raza: "Holstein",
+      fechaIngreso: "2024-05-05",
+      procedencia: "finca",
+      pesoIngreso: 300,
+      apodo: "Trueno",
+      lote: "L-02",
+      precioPorKg: 1700,
+      precioCompra: 510000,
+      costoTransporte: 20000,
+      comision: 0,
+      precioTotal: 530000,
+      estado: "descartado",
+      historialLotes: [],
+      historialCambios: [],
+    },
+  ],
+  pesajes: [
+    { id: "P-001", animalId: "AN-001", fecha: "2024-09-05", peso: 280 },
+    { id: "P-002", animalId: "AN-001", fecha: "2024-10-05", peso: 318, suplementacion: "Ración Engorde" },
+    { id: "P-003", animalId: "AN-001", fecha: "2024-11-05", peso: 352 },
+    { id: "P-004", animalId: "AN-002", fecha: "2024-08-20", peso: 260 },
+    { id: "P-005", animalId: "AN-002", fecha: "2024-09-25", peso: 286 },
+    { id: "P-006", animalId: "AN-002", fecha: "2024-11-02", peso: 310 },
+    { id: "P-007", animalId: "AN-003", fecha: "2024-06-15", peso: 290 },
+    { id: "P-008", animalId: "AN-003", fecha: "2024-08-01", peso: 335 },
+    { id: "P-009", animalId: "AN-003", fecha: "2024-10-10", peso: 378 },
+    { id: "P-010", animalId: "AN-004", fecha: "2024-07-10", peso: 240 },
+    { id: "P-011", animalId: "AN-004", fecha: "2024-09-01", peso: 272 },
+    { id: "P-012", animalId: "AN-004", fecha: "2024-11-01", peso: 299 },
+  ],
+  insumos: [
+    { id: "INS-001", nombre: "Concentrado Premium", precio: 23000, presentacion: "Saco 40kg", costoPorKg: 575, stock: 820, unidad: "kg" },
+    { id: "INS-002", nombre: "Melaza", precio: 18500, presentacion: "Tanque 200L", costoPorKg: 320, stock: 640, unidad: "kg" },
+    { id: "INS-003", nombre: "Minerales Chelados", precio: 28000, presentacion: "Saco 25kg", costoPorKg: 1120, stock: 190, unidad: "kg" },
+  ],
+  raciones: [
+    {
+      id: "RAC-001",
+      nombre: "Engorde Intensivo L-01",
+      lote: "L-01",
+      fechaInicio: "2024-09-01",
+      insumos: [
+        { insumoId: "INS-001", kgPorAnimalDia: 4.2 },
+        { insumoId: "INS-002", kgPorAnimalDia: 1.1 },
+        { insumoId: "INS-003", kgPorAnimalDia: 0.15 },
+      ],
+    },
+    {
+      id: "RAC-002",
+      nombre: "Recría L-02",
+      lote: "L-02",
+      fechaInicio: "2024-08-10",
+      insumos: [
+        { insumoId: "INS-001", kgPorAnimalDia: 3.2 },
+        { insumoId: "INS-003", kgPorAnimalDia: 0.08 },
+      ],
+    },
+  ],
+  eventos: [
+    {
+      id: "EV-001",
+      animalId: "AN-001",
+      fecha: "2024-09-12",
+      tipo: "vacuna",
+      producto: "Clostridiosis 8 vías",
+      dosis: "5 ml",
+      viaAplicacion: "Subcutánea",
+      diasRetiro: 15,
+      fechaFinRetiro: "2024-09-27",
+    },
+    {
+      id: "EV-002",
+      lote: "L-02",
+      fecha: "2024-10-03",
+      tipo: "desparasitación",
+      producto: "Ivermectina 1%",
+      dosis: "1 ml/50kg",
+      viaAplicacion: "Subcutánea",
+      diasRetiro: 21,
+      fechaFinRetiro: "2024-10-24",
+    },
+    {
+      id: "EV-003",
+      animalId: "AN-004",
+      fecha: "2024-11-15",
+      tipo: "antibiótico",
+      producto: "Oxitetra LA",
+      dosis: "10 ml",
+      viaAplicacion: "Intramuscular",
+      diasRetiro: 28,
+      fechaFinRetiro: "2024-12-13",
+      observaciones: "Fiebre leve",
+    },
+  ],
+  medicamentos: [
+    { id: "MED-001", nombre: "Ivermectina 1%", stock: 36, unidad: "frasco", fechaVencimiento: "2025-02-20" },
+    { id: "MED-002", nombre: "Clostridiosis 8 vías", stock: 18, unidad: "frasco", fechaVencimiento: "2025-05-12" },
+    { id: "MED-003", nombre: "Oxitetra LA", stock: 9, unidad: "frasco", fechaVencimiento: "2024-12-01" },
+  ],
+  escenarios: [
+    { id: "ESC-001", nombre: "Engorde 2025 Q1", pesoInicial: 280, pesoObjetivo: 420, gdpEsperado: 1.1, costoDiario: 2800, precioVentaEsperado: 1350 },
+    { id: "ESC-002", nombre: "Exportación Dorper", pesoInicial: 260, pesoObjetivo: 400, gdpEsperado: 0.95, costoDiario: 2500, precioVentaEsperado: 1400 },
+  ],
+  ventas: [
+    {
+      id: "VTA-001",
+      animalId: "AN-003",
+      fechaVenta: "2024-11-25",
+      canalVenta: "Frigorífico",
+      pesoVenta: 382,
+      precioPorKg: 1400,
+      costosSalida: 42000,
+      merma: 2.5,
+    },
+  ],
+  costos: [
+    { id: "CST-001", animalId: "AN-001", categoria: "alimentacion", descripcion: "Ración Engorde", monto: 95000, fecha: "2024-10-01" },
+    { id: "CST-002", lote: "L-02", categoria: "sanidad", descripcion: "Vacunación Brucelosis", monto: 42000, fecha: "2024-09-15" },
+    { id: "CST-003", animalId: "AN-003", categoria: "transporte", descripcion: "Salida a planta", monto: 60000, fecha: "2024-11-24" },
+  ],
+  lotMovements: [
+    { id: "LM-001", animalId: "AN-002", fecha: "2024-10-12", loteOrigen: "L-02", loteDestino: "L-03", motivo: "Balancear densidad" },
+  ],
+  changeRecords: [
+    {
+      id: "CHG-001",
+      animalId: "AN-001",
+      fecha: "2024-10-10",
+      campo: "precioTotal",
+      valorAnterior: "₡540.000",
+      valorNuevo: "₡547.000",
+    },
+  ],
 }
 
-export async function getRaciones(): Promise<Racion[]> {
-  const { data: raciones, error } = await supabase.schema('bovinos').from('raciones').select('*').order('nombre')
-  if (error) throw error
-  
-  const result: Racion[] = []
-  for (const r of raciones) {
-    const { data: insumos } = await supabase.schema('bovinos')
-      .from('racion_insumos')
-      .select('*')
-      .eq('racion_id', r.id)
-    result.push(mapRacion(r, insumos || []))
+export function cloneInitialData(): DataSnapshot {
+  return structuredClone(initialData)
+}
+
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("es-CR", {
+    style: "currency",
+    currency: "CRC",
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+export function formatNumber(value: number, decimals = 1): string {
+  return value.toFixed(decimals)
+}
+
+export function getStatusColor(estado: AnimalStatus): string {
+  switch (estado) {
+    case "activo":
+      return "bg-emerald-100 text-emerald-800"
+    case "vendido":
+      return "bg-blue-100 text-blue-800"
+    case "muerto":
+      return "bg-red-100 text-red-800"
+    case "descartado":
+      return "bg-amber-100 text-amber-800"
   }
-  return result
 }
 
-export async function getEventosSanitarios(): Promise<EventoSanitario[]> {
-  const { data, error } = await supabase.schema('bovinos').from('eventos_sanitarios').select('*').order('fecha', { ascending: false })
-  if (error) throw error
-  return data.map(mapEventoSanitario)
-}
-
-export async function getMedicamentos(): Promise<MedicamentoStock[]> {
-  const { data, error } = await supabase.schema('bovinos').from('medicamentos').select('*').order('nombre')
-  if (error) throw error
-  return data.map(mapMedicamento)
-}
-
-export async function getEscenarios(): Promise<Escenario[]> {
-  const { data, error } = await supabase.schema('bovinos').from('escenarios').select('*').order('nombre')
-  if (error) throw error
-  return data.map(mapEscenario)
-}
-
-export async function getVentas(): Promise<Venta[]> {
-  const { data, error } = await supabase.schema('bovinos').from('ventas').select('*').order('fecha_venta', { ascending: false })
-  if (error) throw error
-  return data.map(mapVenta)
-}
-
-export async function insertAnimal(animal: Omit<Animal, 'historialLotes' | 'historialCambios'>) {
-  const { error } = await supabase.schema('bovinos').from('animales').insert({
-    id: animal.id,
-    diio: animal.diio,
-    id_subasta: animal.idSubasta,
-    id_finca: animal.idFinca,
-    fierro_origen: animal.fierroOrigen,
-    genero: animal.genero,
-    raza: animal.raza,
-    fecha_ingreso: animal.fechaIngreso,
-    procedencia: animal.procedencia,
-    peso_ingreso: animal.pesoIngreso,
-    apodo: animal.apodo,
-    lote: animal.lote,
-    precio_por_kg: animal.precioPorKg,
-    precio_compra: animal.precioCompra,
-    costo_transporte: animal.costoTransporte,
-    comision: animal.comision,
-    precio_total: animal.precioTotal,
-    estado: animal.estado,
-  })
-  if (error) throw error
-}
-
-export async function updateAnimal(id: string, updates: Partial<Animal>) {
-  const { error } = await supabase.schema('bovinos').from('animales').update(updates).eq('id', id)
-  if (error) throw error
-}
-
-export async function deleteAnimal(id: string) {
-  const { error } = await supabase.schema('bovinos').from('animales').delete().eq('id', id)
-  if (error) throw error
-}
-
-export async function insertPesaje(pesaje: Pesaje) {
-  const { error } = await supabase.schema('bovinos').from('pesajes').insert({
-    id: pesaje.id,
-    animal_id: pesaje.animalId,
-    fecha: pesaje.fecha,
-    peso: pesaje.peso,
-    suplementacion: pesaje.suplementacion,
-  })
-  if (error) throw error
-}
-
-export async function insertInsumo(insumo: Insumo) {
-  const { error } = await supabase.schema('bovinos').from('insumos').insert({
-    id: insumo.id,
-    nombre: insumo.nombre,
-    precio: insumo.precio,
-    presentacion: insumo.presentacion,
-    costo_por_kg: insumo.costoPorKg,
-    stock: insumo.stock,
-    unidad: insumo.unidad,
-  })
-  if (error) throw error
-}
-
-export async function updateInsumo(id: string, updates: Partial<Insumo>) {
-  const updateData: any = {}
-  if (updates.nombre !== undefined) updateData.nombre = updates.nombre
-  if (updates.precio !== undefined) updateData.precio = updates.precio
-  if (updates.presentacion !== undefined) updateData.presentacion = updates.presentacion
-  if (updates.costoPorKg !== undefined) updateData.costo_por_kg = updates.costoPorKg
-  if (updates.stock !== undefined) updateData.stock = updates.stock
-  if (updates.unidad !== undefined) updateData.unidad = updates.unidad
-  
-  const { error } = await supabase.schema('bovinos').from('insumos').update(updateData).eq('id', id)
-  if (error) throw error
-}
-
-export async function deleteInsumo(id: string) {
-  const { error } = await supabase.schema('bovinos').from('insumos').delete().eq('id', id)
-  if (error) throw error
-}
-
-export async function insertRacion(racion: Racion) {
-  const { error: errorRacion } = await supabase.schema('bovinos').from('raciones').insert({
-    id: racion.id,
-    nombre: racion.nombre,
-    lote: racion.lote,
-    fecha_inicio: racion.fechaInicio,
-    fecha_fin: racion.fechaFin,
-  })
-  if (errorRacion) throw errorRacion
-
-  for (const insumo of racion.insumos) {
-    const { error: errorInsumo } = await supabase.schema('bovinos').from('racion_insumos').insert({
-      id: `${racion.id}-${insumo.insumoId}`,
-      racion_id: racion.id,
-      insumo_id: insumo.insumoId,
-      kg_por_animal_dia: insumo.kgPorAnimalDia,
-    })
-    if (errorInsumo) throw errorInsumo
-  }
-}
-
-export async function insertEventoSanitario(evento: EventoSanitario) {
-  const { error } = await supabase.schema('bovinos').from('eventos_sanitarios').insert({
-    id: evento.id,
-    animal_id: evento.animalId,
-    lote: evento.lote,
-    fecha: evento.fecha,
-    tipo: evento.tipo,
-    producto: evento.producto,
-    dosis: evento.dosis,
-    via_aplicacion: evento.viaAplicacion,
-    diagnostico: evento.diagnostico,
-    observaciones: evento.observaciones,
-    dias_retiro: evento.diasRetiro,
-    fecha_fin_retiro: evento.fechaFinRetiro,
-  })
-  if (error) throw error
-}
-
-export async function insertMedicamento(medicamento: MedicamentoStock) {
-  const { error } = await supabase.schema('bovinos').from('medicamentos').insert({
-    id: medicamento.id,
-    nombre: medicamento.nombre,
-    stock: medicamento.stock,
-    unidad: medicamento.unidad,
-    fecha_vencimiento: medicamento.fechaVencimiento,
-  })
-  if (error) throw error
-}
-
-export async function updateMedicamento(id: string, updates: Partial<MedicamentoStock>) {
-  const { error } = await supabase.schema('bovinos').from('medicamentos').update(updates).eq('id', id)
-  if (error) throw error
-}
-
-export async function insertEscenario(escenario: Escenario) {
-  const { error } = await supabase.schema('bovinos').from('escenarios').insert(escenario)
-  if (error) throw error
-}
-
-export async function insertVenta(venta: Venta) {
-  const { error } = await supabase.schema('bovinos').from('ventas').insert({
-    id: venta.id,
-    animal_id: venta.animalId,
-    fecha_venta: venta.fechaVenta,
-    canal_venta: venta.canalVenta,
-    peso_venta: venta.pesoVenta,
-    precio_por_kg: venta.precioPorKg,
-    costos_salida: venta.costosSalida,
-    merma: venta.merma,
-  })
-  if (error) throw error
+export function getLotes(animales: Animal[]): string[] {
+  return [...new Set(animales.map((a) => a.lote))].sort()
 }
 
 export function getUltimoPeso(animalId: string, pesajes: Pesaje[]): number | null {
@@ -432,34 +417,104 @@ export function calcGDP(pesajes: Pesaje[]): number | null {
   return (last.peso - first.peso) / dias
 }
 
-export function getAnimalesPorLote(animales: Animal[]): Record<string, Animal[]> {
-  return animales.reduce(
-    (acc, a) => {
-      if (!acc[a.lote]) acc[a.lote] = []
-      acc[a.lote].push(a)
-      return acc
-    },
-    {} as Record<string, Animal[]>
+export function getAnimalesConProblemas(animales: Animal[], pesajes: Pesaje[]): {
+  estancados: string[]
+  perdaPeso: string[]
+} {
+  const estancados: string[] = []
+  const perdaPeso: string[] = []
+
+  for (const animal of animales.filter((a) => a.estado === "activo")) {
+    const animalPesajes = pesajes
+      .filter((p) => p.animalId === animal.id)
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+
+    if (animalPesajes.length >= 2) {
+      const ultimo = animalPesajes[animalPesajes.length - 1]
+      const anterior = animalPesajes[animalPesajes.length - 2]
+      const dias =
+        (new Date(ultimo.fecha).getTime() - new Date(anterior.fecha).getTime()) /
+        (1000 * 60 * 60 * 24)
+
+      if (ultimo.peso < anterior.peso) {
+        perdaPeso.push(animal.id)
+      } else if (dias > 30 && calcGDP(animalPesajes) !== null && calcGDP(animalPesajes)! < 0.1) {
+        estancados.push(animal.id)
+      }
+    }
+  }
+
+  return { estancados, perdaPeso }
+}
+
+export function getInsumosBajoStock(insumos: Insumo[], umbral = 10): Insumo[] {
+  return insumos.filter((i) => i.stock <= umbral)
+}
+
+export function getMedicamentosBajoStock(medicamentos: MedicamentoStock[], umbral = 5): MedicamentoStock[] {
+  return medicamentos.filter((m) => m.stock <= umbral)
+}
+
+export function getMedicamentosVencidos(medicamentos: MedicamentoStock[]): MedicamentoStock[] {
+  const hoy = new Date()
+  return medicamentos.filter((m) => m.fechaVencimiento && new Date(m.fechaVencimiento) < hoy)
+}
+
+export function getMedicamentosVencimientoProximo(
+  medicamentos: MedicamentoStock[],
+  dias = 30
+): MedicamentoStock[] {
+  const hoy = new Date()
+  const limite = new Date(hoy.getTime() + dias * 24 * 60 * 60 * 1000)
+  return medicamentos.filter(
+    (m) =>
+      m.fechaVencimiento &&
+      new Date(m.fechaVencimiento) >= hoy &&
+      new Date(m.fechaVencimiento) <= limite
   )
 }
 
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 }).format(value)
+export function hasActiveRetiro(
+  eventos: EventoSanitario[],
+  animalId: string,
+  fechaReferencia: Date = new Date()
+): boolean {
+  return eventos.some(
+    (ev) => ev.animalId === animalId && ev.fechaFinRetiro && new Date(ev.fechaFinRetiro) > fechaReferencia
+  )
 }
 
-export function formatNumber(value: number, decimals = 1): string {
-  return value.toFixed(decimals)
-}
+export function getAlertasDashboard(
+  animales: Animal[],
+  pesajes: Pesaje[],
+  eventos: EventoSanitario[],
+  medicamentos: MedicamentoStock[],
+  insumos: Insumo[]
+) {
+  const animalesActivos = animales.filter((a) => a.estado === "activo")
+  const { estancados, perdaPeso } = getAnimalesConProblemas(animales, pesajes)
+  const medsBajoStock = getMedicamentosBajoStock(medicamentos)
+  const medsVencidos = getMedicamentosVencidos(medicamentos)
+  const medsVencimientoProximo = getMedicamentosVencimientoProximo(medicamentos)
+  const insumosBajoStock = getInsumosBajoStock(insumos)
 
-export function getStatusColor(estado: AnimalStatus): string {
-  switch (estado) {
-    case "activo": return "bg-emerald-100 text-emerald-800"
-    case "vendido": return "bg-blue-100 text-blue-800"
-    case "muerto": return "bg-red-100 text-red-800"
-    case "descartado": return "bg-amber-100 text-amber-800"
+  const retirosActivos = animalesActivos.filter((a) => hasActiveRetiro(eventos, a.id))
+
+  return {
+    countAnimales: animalesActivos.length,
+    countEstancados: estancados.length,
+    countPerdaPeso: perdaPeso.length,
+    countRetirosActivos: retirosActivos.length,
+    countMedsBajoStock: medsBajoStock.length,
+    countMedsVencidos: medsVencidos.length,
+    countMedsVencimientoProximo: medsVencimientoProximo.length,
+    countInsumosBajoStock: insumosBajoStock.length,
+    idsEstancados: estancados,
+    idsPerdaPeso: perdaPeso,
+    idsRetirosActivos: retirosActivos.map((a) => a.id),
+    medicamentosBajoStock: medsBajoStock,
+    medicamentosVencidos: medsVencidos,
+    medicamentosVencimientoProximo: medsVencimientoProximo,
+    insumosBajoStock,
   }
-}
-
-export function getLotes(animales: Animal[]): string[] {
-  return [...new Set(animales.map((a) => a.lote))].sort()
 }

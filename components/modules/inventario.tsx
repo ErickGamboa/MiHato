@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -41,45 +41,25 @@ import {
   type Gender,
   type Pesaje,
   type EventoSanitario,
-  getAnimales,
-  getPesajes,
-  getEventosSanitarios,
   formatCurrency,
   formatNumber,
   getStatusColor,
   calcGDP,
   getUltimoPeso,
   getLotes,
-  insertAnimal,
 } from "@/lib/data"
+import { useDataStore } from "@/hooks/use-data-store"
 
 export function InventarioModule() {
-  const [animales, setAnimales] = useState<Animal[]>([])
-  const [pesajes, setPesajes] = useState<Pesaje[]>([])
-  const [eventos, setEventos] = useState<EventoSanitario[]>([])
-  const [loading, setLoading] = useState(true)
+  const { animales, pesajes, eventos, loading, createAnimal, isIdentifierDuplicated } = useDataStore()
   const [search, setSearch] = useState("")
   const [filterGenero, setFilterGenero] = useState<string>("todos")
   const [filterLote, setFilterLote] = useState<string>("todos")
   const [filterEstado, setFilterEstado] = useState<string>("todos")
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [a, p, e] = await Promise.all([getAnimales(), getPesajes(), getEventosSanitarios()])
-        setAnimales(a)
-        setPesajes(p)
-        setEventos(e)
-      } catch (err) {
-        console.error("Error loading data:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
+  const [showCambioLoteDialog, setShowCambioLoteDialog] = useState(false)
+  const [cambioLoteForm, setCambioLoteForm] = useState({ fecha: new Date().toISOString().split("T")[0], loteOrigen: "", loteDestino: "", motivo: "" })
 
   // New animal form
   const [newForm, setNewForm] = useState({
@@ -112,17 +92,15 @@ export function InventarioModule() {
   }, [animales, search, filterGenero, filterLote, filterEstado])
 
   const handleCreateAnimal = async () => {
-    // Validación duplicados
-    if (newForm.diio && animales.some((a) => a.diio === newForm.diio)) {
-      alert("DIIO duplicado. Este identificador ya existe.")
-      return
-    }
-    if (newForm.idSubasta && animales.some((a) => a.idSubasta === newForm.idSubasta)) {
-      alert("ID de subasta duplicado.")
-      return
-    }
+    // Validación de campos obligatorios
     if (!newForm.genero || !newForm.fechaIngreso || !newForm.pesoIngreso || !newForm.lote || !newForm.precioPorKg) {
       alert("Complete los campos obligatorios: género, fecha ingreso, peso ingreso, lote, precio/kg.")
+      return
+    }
+
+    // Validación de duplicados en Supabase
+    if (isIdentifierDuplicated(newForm.diio || undefined, newForm.idSubasta || undefined)) {
+      alert("DIIO o ID de subasta duplicado. Este identificador ya existe en el sistema.")
       return
     }
 
@@ -156,14 +134,8 @@ export function InventarioModule() {
       historialCambios: [],
     }
 
-    try {
-      await insertAnimal(newAnimal)
-      setAnimales([...animales, newAnimal])
-      setShowNewDialog(false)
-    } catch (err) {
-      console.error("Error inserting animal:", err)
-      alert("Error al registrar animal")
-    }
+    createAnimal(newAnimal)
+    setShowNewDialog(false)
     setNewForm({
       diio: "", idSubasta: "", idFinca: "", fierroOrigen: "",
       genero: "macho", raza: "", fechaIngreso: new Date().toISOString().split("T")[0],

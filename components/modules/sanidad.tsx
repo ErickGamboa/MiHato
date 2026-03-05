@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,24 +29,15 @@ import {
   type Animal,
   type EventoSanitario,
   type MedicamentoStock,
-  getAnimales,
-  getEventosSanitarios,
-  getMedicamentos,
-  formatCurrency,
-  formatNumber,
   getLotes,
-  insertEventoSanitario,
-  insertMedicamento,
 } from "@/lib/data"
+import { useDataStore } from "@/hooks/use-data-store"
 
 const tiposEvento = ["vacuna", "desparasitación", "antibiótico", "implante", "cirugía", "otro"]
 const viasAplicacion = ["Subcutánea", "Intramuscular", "Oral", "Tópica", "Subcutánea oreja", "Intravenosa"]
 
 export function SanidadModule() {
-  const [animales, setAnimales] = useState<Animal[]>([])
-  const [eventos, setEventos] = useState<EventoSanitario[]>([])
-  const [medicamentos, setMedicamentos] = useState<MedicamentoStock[]>([])
-  const [loading, setLoading] = useState(true)
+  const { animales, eventos, medicamentos, loading, createEvento } = useDataStore()
   const [showNewEvento, setShowNewEvento] = useState(false)
   const [newEvento, setNewEvento] = useState({
     aplicarA: "animal" as "animal" | "lote",
@@ -54,22 +45,6 @@ export function SanidadModule() {
     tipo: "vacuna", producto: "", dosis: "", viaAplicacion: "Subcutánea",
     diagnostico: "", observaciones: "", diasRetiro: "0",
   })
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [a, e, m] = await Promise.all([getAnimales(), getEventosSanitarios(), getMedicamentos()])
-        setAnimales(a)
-        setEventos(e)
-        setMedicamentos(m)
-      } catch (err) {
-        console.error("Error loading data:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
 
   const animalesActivos = animales.filter((a) => a.estado === "activo")
   const lotes = getLotes(animales)
@@ -148,7 +123,7 @@ export function SanidadModule() {
       diasRetiro,
       fechaFinRetiro,
     }
-    setEventos([...eventos, ev])
+    createEvento(ev)
     setShowNewEvento(false)
   }
 

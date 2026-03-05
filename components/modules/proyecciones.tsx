@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,29 +21,15 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Plus, TrendingUp, Target, Calculator } from "lucide-react"
-import { type Escenario, getEscenarios, formatCurrency, formatNumber, insertEscenario } from "@/lib/data"
+import { type Escenario, formatCurrency, formatNumber } from "@/lib/data"
+import { useDataStore } from "@/hooks/use-data-store"
 
 export function ProyeccionesModule() {
-  const [escenarios, setEscenarios] = useState<Escenario[]>([])
-  const [loading, setLoading] = useState(true)
+  const { escenarios, loading, createEscenario } = useDataStore()
   const [showNew, setShowNew] = useState(false)
   const [newEsc, setNewEsc] = useState({
     nombre: "", pesoInicial: "", pesoObjetivo: "", gdpEsperado: "", costoDiario: "", precioVentaEsperado: "",
   })
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const e = await getEscenarios()
-        setEscenarios(e)
-      } catch (err) {
-        console.error("Error loading data:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
 
   const calcs = useMemo(() => {
     return escenarios.map((esc) => {
@@ -93,7 +79,7 @@ export function ProyeccionesModule() {
       return
     }
     const esc: Escenario = {
-      id: `ESC-${String(escenarios.length + 1).padStart(3, "0")}`,
+      id: "",
       nombre: newEsc.nombre,
       pesoInicial: Number.parseFloat(newEsc.pesoInicial),
       pesoObjetivo: Number.parseFloat(newEsc.pesoObjetivo),
@@ -101,7 +87,7 @@ export function ProyeccionesModule() {
       costoDiario: Number.parseFloat(newEsc.costoDiario),
       precioVentaEsperado: Number.parseFloat(newEsc.precioVentaEsperado),
     }
-    setEscenarios([...escenarios, esc])
+    createEscenario(esc)
     setShowNew(false)
     setNewEsc({ nombre: "", pesoInicial: "", pesoObjetivo: "", gdpEsperado: "", costoDiario: "", precioVentaEsperado: "" })
   }
