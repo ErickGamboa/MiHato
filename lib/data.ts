@@ -300,17 +300,39 @@ export async function deleteAnimal(id: string) {
 }
 
 export async function insertPesaje(pesaje: Pesaje) {
-  const { error } = await supabase.schema('bovinos').from('pesajes').insert(pesaje)
+  const { error } = await supabase.schema('bovinos').from('pesajes').insert({
+    id: pesaje.id,
+    animal_id: pesaje.animalId,
+    fecha: pesaje.fecha,
+    peso: pesaje.peso,
+    suplementacion: pesaje.suplementacion,
+  })
   if (error) throw error
 }
 
 export async function insertInsumo(insumo: Insumo) {
-  const { error } = await supabase.schema('bovinos').from('insumos').insert(insumo)
+  const { error } = await supabase.schema('bovinos').from('insumos').insert({
+    id: insumo.id,
+    nombre: insumo.nombre,
+    precio: insumo.precio,
+    presentacion: insumo.presentacion,
+    costo_por_kg: insumo.costoPorKg,
+    stock: insumo.stock,
+    unidad: insumo.unidad,
+  })
   if (error) throw error
 }
 
 export async function updateInsumo(id: string, updates: Partial<Insumo>) {
-  const { error } = await supabase.schema('bovinos').from('insumos').update(updates).eq('id', id)
+  const updateData: any = {}
+  if (updates.nombre !== undefined) updateData.nombre = updates.nombre
+  if (updates.precio !== undefined) updateData.precio = updates.precio
+  if (updates.presentacion !== undefined) updateData.presentacion = updates.presentacion
+  if (updates.costoPorKg !== undefined) updateData.costo_por_kg = updates.costoPorKg
+  if (updates.stock !== undefined) updateData.stock = updates.stock
+  if (updates.unidad !== undefined) updateData.unidad = updates.unidad
+  
+  const { error } = await supabase.schema('bovinos').from('insumos').update(updateData).eq('id', id)
   if (error) throw error
 }
 
@@ -359,7 +381,13 @@ export async function insertEventoSanitario(evento: EventoSanitario) {
 }
 
 export async function insertMedicamento(medicamento: MedicamentoStock) {
-  const { error } = await supabase.schema('bovinos').from('medicamentos').insert(medicamento)
+  const { error } = await supabase.schema('bovinos').from('medicamentos').insert({
+    id: medicamento.id,
+    nombre: medicamento.nombre,
+    stock: medicamento.stock,
+    unidad: medicamento.unidad,
+    fecha_vencimiento: medicamento.fechaVencimiento,
+  })
   if (error) throw error
 }
 
@@ -374,7 +402,16 @@ export async function insertEscenario(escenario: Escenario) {
 }
 
 export async function insertVenta(venta: Venta) {
-  const { error } = await supabase.schema('bovinos').from('ventas').insert(venta)
+  const { error } = await supabase.schema('bovinos').from('ventas').insert({
+    id: venta.id,
+    animal_id: venta.animalId,
+    fecha_venta: venta.fechaVenta,
+    canal_venta: venta.canalVenta,
+    peso_venta: venta.pesoVenta,
+    precio_por_kg: venta.precioPorKg,
+    costos_salida: venta.costosSalida,
+    merma: venta.merma,
+  })
   if (error) throw error
 }
 
