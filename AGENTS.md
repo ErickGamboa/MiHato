@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-MiHato is a Next.js 16 application with TypeScript, Tailwind CSS, and Supabase. It uses the App Router structure and includes shadcn/ui components for the UI layer.
+MiHato is a Next.js 16 application with TypeScript, Tailwind CSS, and Supabase. It uses the App Router structure and includes shadcn/ui components for the UI layer. The application is configured to use **Costa Rican Colon (CRC)** as the default currency.
 
 ## Build Commands
 
@@ -21,6 +21,9 @@ npm run lint
 
 # Run a single test (if tests exist)
 npm run test -- --testNamePattern="test name"
+
+# TypeScript check
+npx tsc --noEmit
 ```
 
 ## Project Structure
@@ -30,7 +33,7 @@ npm run test -- --testNamePattern="test name"
 ├── app/                    # Next.js App Router pages
 │   ├── layout.tsx         # Root layout
 │   ├── page.tsx           # Home page
-│   └── globals.css       # Global styles
+│   └── globals.css        # Global styles
 ├── components/
 │   ├── ui/               # shadcn/ui components
 │   ├── modules/          # Feature-specific components
@@ -38,7 +41,7 @@ npm run test -- --testNamePattern="test name"
 ├── lib/
 │   ├── utils.ts         # cn() utility function
 │   ├── supabase.ts      # Supabase client
-│   └── data.ts          # Data fetching utilities
+│   └── data.ts          # Data fetching & CRUD utilities
 ├── hooks/               # Custom React hooks
 ├── public/              # Static assets
 └── styles/              # Additional styles
@@ -65,6 +68,7 @@ npm run test -- --testNamePattern="test name"
 - Define prop types using `extends React.XHTMLAttributes` pattern
 - Set `displayName` for components: `Button.displayName = 'Button'`
 - Use functional components with explicit return types when helpful
+- Use `"use client"` directive for client-side components
 
 ### Styling with Tailwind CSS
 
@@ -85,6 +89,13 @@ npm run test -- --testNamePattern="test name"
 - **Functions**: camelCase (e.g., `formatDate`, `calculateTotal`)
 - **Constants**: PascalCase for exported constants, SCREAMING_SNAKE for config
 - **Files**: kebab-case for utilities, PascalCase for components
+- **Database columns**: snake_case (e.g., `animal_id`, `fecha_ingreso`)
+
+### Currency
+
+- All monetary values are in **Costa Rican Colon (CRC)**
+- Use `formatCurrency()` from `@/lib/data` to display values
+- Hardcoded values should use CRC equivalent (e.g., ₡2,000 instead of $2)
 
 ### Error Handling
 
@@ -96,6 +107,8 @@ npm run test -- --testNamePattern="test name"
 ### Database (Supabase)
 
 - Use the Supabase client from `@/lib/supabase`
+- All tables are in the `bovinos` schema: `supabase.schema('bovinos').from('table')`
+- **IMPORTANT**: When inserting/updating, use snake_case column names to match the database
 - Enable RLS (Row Level Security) policies in the database
 - Handle loading and error states in data-fetching components
 
@@ -128,14 +141,21 @@ Follow the shadcn/ui pattern:
 2. Add any necessary layout in `app/[route]/layout.tsx`
 3. Fetch data server-side with async components
 
-### Database Operations
+### Database Operations (Supabase)
+
+Always specify the `bovinos` schema and use snake_case for column names:
 
 ```typescript
 // Fetch data
-const { data, error } = await supabase.from('table').select('*')
+const { data, error } = await supabase.schema('bovinos').from('animales').select('*')
 
-// Insert data
-const { data, error } = await supabase.from('table').insert({ ... })
+// Insert data (IMPORTANT: use snake_case column names)
+const { error } = await supabase.schema('bovinos').from('ventas').insert({
+  id: '...',
+  animal_id: '...',      // NOT animalId
+  fecha_venta: '...',    // NOT fechaVenta
+  peso_venta: 100,       // NOT pesoVenta
+})
 
 // Handle errors
 if (error) {
@@ -143,3 +163,15 @@ if (error) {
   return
 }
 ```
+
+### Column Name Mapping
+
+The codebase uses camelCase in TypeScript interfaces but **snake_case** in the database:
+
+| TypeScript (lib/data.ts) | Database (bovinos schema) |
+|--------------------------|---------------------------|
+| `animalId` | `animal_id` |
+| `fechaVenta` | `fecha_venta` |
+| `pesoVenta` | `peso_venta` |
+| `costoPorKg` | `costo_por_kg` |
+| `fechaVencimiento` | `fecha_vencimiento` |
