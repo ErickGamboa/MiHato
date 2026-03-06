@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, TrendingUp, TrendingDown, Minus, AlertTriangle } from "lucide-react"
+import { Plus, TrendingUp, TrendingDown, Minus, AlertTriangle, Eye } from "lucide-react"
 import {
   type Animal,
   type Pesaje,
@@ -49,11 +49,11 @@ export function PesajesModule() {
   const { animales, pesajes, raciones, loading, createPesaje } = useDataStore()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [filterLote, setFilterLote] = useState<string>("todos")
+  const [detailAnimalId, setDetailAnimalId] = useState<string | null>(null)
   const [newForm, setNewForm] = useState({
     animalId: "",
     fecha: new Date().toISOString().split("T")[0],
     peso: "",
-    suplementacion: "",
     racionId: "",
   })
   const [columnFilters, setColumnFilters] = useState({
@@ -71,6 +71,7 @@ export function PesajesModule() {
   const animalesActivos = animales.filter((a) => a.estado === "activo")
   const lotes = getLotes(animales)
   const racionesActivas = useMemo(() => raciones.filter((r) => r.activa), [raciones])
+  const racionesMap = useMemo(() => new Map(raciones.map((r) => [r.id, r])), [raciones])
   const selectedAnimal = useMemo(() => animales.find((a) => a.id === newForm.animalId), [animales, newForm.animalId])
   const racionesDisponibles = useMemo(() => {
     if (!selectedAnimal) return racionesActivas
@@ -128,7 +129,7 @@ export function PesajesModule() {
       const matchesGdp = !columnFilters.gdp || (row.gdp !== null && `${row.gdp}`.includes(columnFilters.gdp))
       const matchesTrend = columnFilters.trend === "todos" || row.trend === columnFilters.trend
       const matchesPesajes = !columnFilters.pesajes || `${row.numPesajes}`.includes(columnFilters.pesajes)
-      const racionNombre = row.lastRacionId ? racionesActivas.find((r) => r.id === row.lastRacionId)?.nombre : row.lastSuplementacion
+      const racionNombre = row.lastRacionId ? racionesMap.get(row.lastRacionId)?.nombre : row.lastSuplementacion
       const matchesRacion = search(racionNombre || "—", columnFilters.racion)
 
       return (
@@ -143,7 +144,7 @@ export function PesajesModule() {
         matchesRacion
       )
     })
-  }, [animalData, columnFilters, racionesActivas])
+  }, [animalData, columnFilters, racionesMap])
 
   const gdpPorLoteData = lotes.map((lote) => {
     const animalesLote = animalesActivos.filter((a) => a.lote === lote)
@@ -174,6 +175,16 @@ export function PesajesModule() {
     }
   })
 
+  const detailData = useMemo(() => {
+    if (!detailAnimalId) return null
+    const animal = animales.find((a) => a.id === detailAnimalId)
+    if (!animal) return null
+    const historial = pesajes
+      .filter((p) => p.animalId === detailAnimalId)
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    return { animal, pesajes: historial }
+  }, [detailAnimalId, animales, pesajes])
+
   const handleNewPesaje = async () => {
     if (!newForm.animalId || !newForm.fecha || !newForm.peso) {
       alert("Complete todos los campos obligatorios.")
@@ -183,7 +194,6 @@ export function PesajesModule() {
       animalId: newForm.animalId,
       fecha: newForm.fecha,
       peso: Number.parseFloat(newForm.peso),
-      suplementacion: newForm.suplementacion || undefined,
       racionId: newForm.racionId || undefined,
     }
     try {
@@ -194,7 +204,7 @@ export function PesajesModule() {
       return
     }
     setShowNewDialog(false)
-    setNewForm({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", suplementacion: "", racionId: "" })
+    setNewForm({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", racionId: "" })
   }
 
   if (loading) {
@@ -284,10 +294,6 @@ export function PesajesModule() {
                   <Input type="number" value={newForm.peso} onChange={(e) => setNewForm({ ...newForm, peso: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Suplementación</Label>
-                  <Input value={newForm.suplementacion} onChange={(e) => setNewForm({ ...newForm, suplementacion: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
                   <Label>Ración aplicada</Label>
                   <Select
                     value={newForm.racionId || SIN_RACION_VALUE}
@@ -372,6 +378,7 @@ export function PesajesModule() {
                     <TableHead>Ración / Supl.</TableHead>
                     <TableHead className="text-center">Tendencia</TableHead>
                     <TableHead className="text-right">Pesajes</TableHead>
+                    <TableHead className="text-center">Historial</TableHead>
                   </TableRow>
                   <TableRow>
                     <TableHead>
@@ -448,49 +455,96 @@ export function PesajesModule() {
                         className="text-right"
                       />
                     </TableHead>
+                    <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAnimalData.map(({ animal, gdp, ultimoPeso, kgGanados, trend, numPesajes, lastRacionId, lastSuplementacion }) => (
-                    <TableRow key={animal.id}>
-                      <TableCell>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{animal.apodo || animal.id}</p>
-                          <p className="text-xs text-muted-foreground">{animal.id} · {animal.raza}</p>
+                  {filteredAnimalData.map(({ animal, gdp, ultimoPeso, kgGanados, trend, numPesajes, lastRacionId, lastSuplementacion }) => {
+                    const racionNombre = lastRacionId ? racionesMap.get(lastRacionId)?.nombre : undefined
+                    return (
+                      <TableRow key={animal.id}>
+                        <TableCell>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{animal.apodo || animal.id}</p>
+                            <p className="text-xs text-muted-foreground">{animal.id} · {animal.raza}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{animal.lote}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{animal.pesoIngreso}</TableCell>
+                        <TableCell className="text-right font-mono font-medium">{ultimoPeso}</TableCell>
+                        <TableCell className="text-right font-mono text-primary">+{kgGanados}</TableCell>
+                        <TableCell className="text-right font-mono">{gdp !== null ? formatNumber(gdp, 2) : "—"}</TableCell>
+                        <TableCell>{racionNombre ?? lastSuplementacion ?? "—"}</TableCell>
+                        <TableCell className="text-center">
+                          {trend === "up" && <TrendingUp className="mx-auto h-4 w-4 text-emerald-600" />}
+                          {trend === "down" && (
+                            <div className="flex items-center justify-center gap-1">
+                              <TrendingDown className="h-4 w-4 text-destructive" />
+                              <AlertTriangle className="h-3 w-3 text-warning" />
+                            </div>
+                          )}
+                          {trend === "stalled" && <Minus className="mx-auto h-4 w-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell className="text-right">{numPesajes}</TableCell>
+                        <TableCell className="text-center">
+                          <Button variant="ghost" size="icon" onClick={() => setDetailAnimalId(animal.id)}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">Ver historial</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      <Dialog open={detailAnimalId !== null} onOpenChange={(open) => { if (!open) setDetailAnimalId(null) }}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              Historial de pesajes
+              {detailData?.animal ? ` · ${detailData.animal.apodo || detailData.animal.id}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {detailData ? (
+            detailData.pesajes.length > 0 ? (
+              <div className="max-h-80 space-y-3 overflow-y-auto">
+                {detailData.pesajes.map((pesaje) => {
+                  const fecha = new Date(pesaje.fecha)
+                  const fechaFormateada = fecha.toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" })
+                  const detalleRacion = pesaje.racionId ? racionesMap.get(pesaje.racionId)?.nombre : undefined
+                  const regimen = detalleRacion ? `Ración: ${detalleRacion}` : "Sin ración registrada"
+                  return (
+                    <div key={pesaje.id} className="flex items-center justify-between rounded-lg border bg-muted/40 p-3 text-sm">
+                      <div>
+                        <p className="font-medium text-foreground">{fechaFormateada}</p>
+                        <p className="text-xs text-muted-foreground">{regimen}</p>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{animal.lote}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{animal.pesoIngreso}</TableCell>
-                    <TableCell className="text-right font-mono font-medium">{ultimoPeso}</TableCell>
-                    <TableCell className="text-right font-mono text-primary">+{kgGanados}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {gdp !== null ? formatNumber(gdp, 2) : "—"}
-                    </TableCell>
-                      <TableCell>
-                        {lastRacionId
-                          ? raciones.find((r) => r.id === lastRacionId)?.nombre || "—"
-                          : lastSuplementacion || "—"}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {trend === "up" && <TrendingUp className="mx-auto h-4 w-4 text-emerald-600" />}
-                        {trend === "down" && (
-                          <div className="flex items-center justify-center gap-1">
-                            <TrendingDown className="h-4 w-4 text-destructive" />
-                            <AlertTriangle className="h-3 w-3 text-warning" />
-                        </div>
-                      )}
-                      {trend === "stalled" && <Minus className="mx-auto h-4 w-4 text-muted-foreground" />}
-                    </TableCell>
-                    <TableCell className="text-right">{numPesajes}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                      <div className="text-right">
+                        <p className="font-mono text-base font-semibold text-foreground">{formatNumber(pesaje.peso, 1)} kg</p>
+                        {!detalleRacion && pesaje.suplementacion && (
+                          <p className="text-xs text-muted-foreground">Supl.: {pesaje.suplementacion}</p>
+                        )}
+                        {!detalleRacion && !pesaje.suplementacion && (
+                          <p className="text-xs text-muted-foreground">Sin suplemento registrado</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Este animal aún no tiene pesajes registrados.</p>
+            )
+          ) : (
+            <p className="text-sm text-muted-foreground">Selecciona un animal para ver su historial.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
