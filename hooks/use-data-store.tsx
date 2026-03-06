@@ -25,11 +25,13 @@ import {
   createPesajeRecord,
   createInsumoRecord,
   updateInsumoRecord,
+  deleteInsumoRecord,
   createEventoRecord,
   createMedicamentoRecord,
   updateMedicamentoRecord,
   createRacionRecord,
   updateRacionRecord,
+  deleteRacionRecord,
   isAnimalIdentifierDuplicated,
   createEscenarioRecord,
   createVentaRecord,
@@ -57,12 +59,14 @@ interface DataStoreValue extends DataSnapshot {
   createPesaje: (pesaje: CreatePesajeInput) => Promise<Pesaje>
   createInsumo: (insumo: CreateInsumoInput) => Promise<Insumo>
   updateInsumo: (id: string, updates: Partial<Insumo>) => Promise<Insumo>
+  deleteInsumo: (id: string) => Promise<void>
   adjustInsumoStock: (id: string, delta: number) => Promise<void>
   createEvento: (evento: CreateEventoInput) => Promise<EventoSanitario>
   createMedicamento: (med: MedicamentoStock) => Promise<MedicamentoStock>
   updateMedicamento: (id: string, updates: Partial<MedicamentoStock>) => Promise<MedicamentoStock>
   createRacion: (racion: CreateRacionInput) => Promise<Racion>
   updateRacion: (id: string, updates: Partial<Racion>) => Promise<Racion>
+  deleteRacion: (id: string) => Promise<void>
   toggleRacion: (id: string, activa: boolean) => Promise<Racion>
   autoConsumeRaciones: (fechaReferencia?: Date) => Promise<void>
   deactivateExpiredRaciones: (fechaReferencia?: Date) => Promise<void>
@@ -157,6 +161,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [refresh]
   )
 
+  const deleteInsumo = useCallback(
+    async (id: string) => {
+      await deleteInsumoRecord(id)
+      await refresh()
+    },
+    [refresh]
+  )
+
   const adjustInsumoStock = useCallback(
     async (id: string, delta: number) => {
       const insumo = state.insumos.find((i) => i.id === id)
@@ -215,6 +227,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const record = await updateRacionRecord(id, updates)
       await refresh()
       return record
+    },
+    [refresh]
+  )
+
+  const deleteRacion = useCallback(
+    async (id: string) => {
+      await deleteRacionRecord(id)
+      await refresh()
     },
     [refresh]
   )
@@ -376,12 +396,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createPesaje,
       createInsumo,
       updateInsumo,
+      deleteInsumo,
       adjustInsumoStock,
       createEvento,
       createMedicamento,
       updateMedicamento,
       createRacion,
       updateRacion,
+      deleteRacion,
       toggleRacion,
       autoConsumeRaciones,
       deactivateExpiredRaciones,

@@ -601,6 +601,11 @@ export async function updateInsumoRecord(id: string, updates: Partial<Insumo>): 
   return mapInsumo(data as InsumoRow)
 }
 
+export async function deleteInsumoRecord(id: string): Promise<void> {
+  const { error } = await bovinos("insumos").delete().eq("id", id)
+  if (error) throw error
+}
+
 function racionToRow(racion: Racion): RacionRow {
   return {
     id: racion.id,
@@ -637,6 +642,11 @@ export async function updateRacionRecord(id: string, updates: Partial<Racion>): 
   const { data, error } = await bovinos("raciones").update(payload).eq("id", id).select().single()
   if (error) throw error
   return mapRacion(data as RacionRow)
+}
+
+export async function deleteRacionRecord(id: string): Promise<void> {
+  const { error } = await bovinos("raciones").delete().eq("id", id)
+  if (error) throw error
 }
 
 export async function createEventoRecord(evento: Omit<EventoSanitario, "id"> & { id?: string }): Promise<EventoSanitario> {

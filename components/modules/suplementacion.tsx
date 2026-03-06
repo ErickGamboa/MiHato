@@ -11,6 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Table,
   TableBody,
   TableCell,
@@ -19,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
-import { Plus, AlertTriangle, Package, Wheat, Droplets, Edit3 } from "lucide-react"
+import { Plus, AlertTriangle, Package, Wheat, Droplets, Edit3, Trash2 } from "lucide-react"
 import {
   type Animal,
   type Insumo,
@@ -47,6 +57,8 @@ export function SuplementacionModule() {
     autoConsumeRaciones,
     deactivateExpiredRaciones,
     updateInsumo,
+    deleteInsumo,
+    deleteRacion,
   } = useDataStore()
   const [showInsumoModal, setShowInsumoModal] = useState(false)
   const [editingInsumoId, setEditingInsumoId] = useState<string | null>(null)
@@ -72,6 +84,9 @@ export function SuplementacionModule() {
     racion: null,
     dias: "1",
   })
+  const [racionToDelete, setRacionToDelete] = useState<Racion | null>(null)
+  const [insumoToDelete, setInsumoToDelete] = useState<Insumo | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const animalesActivos = useMemo(() => animales.filter((a) => a.estado === "activo"), [animales])
   const lotes = useMemo(() => getLotes(animales), [animales])
@@ -232,6 +247,20 @@ export function SuplementacionModule() {
     }
   }
 
+  const confirmDeleteInsumo = async () => {
+    if (!insumoToDelete) return
+    setDeleteLoading(true)
+    try {
+      await deleteInsumo(insumoToDelete.id)
+      setInsumoToDelete(null)
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo eliminar el insumo.")
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   const handleAddRacionRow = () => {
     setRacionForm((prev) => ({ ...prev, insumos: [...prev.insumos, { insumoId: "", kgPorAnimalDia: "" }] }))
   }
@@ -307,6 +336,20 @@ export function SuplementacionModule() {
     } catch (error) {
       console.error(error)
       alert("No se pudo guardar la ración.")
+    }
+  }
+
+  const confirmDeleteRacion = async () => {
+    if (!racionToDelete) return
+    setDeleteLoading(true)
+    try {
+      await deleteRacion(racionToDelete.id)
+      setRacionToDelete(null)
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo eliminar la ración.")
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -562,6 +605,16 @@ export function SuplementacionModule() {
                       </Badge>
                       <Button variant="ghost" size="icon" onClick={() => handleEditRacion(racion)}>
                         <Edit3 className="h-4 w-4" />
+                        <span className="sr-only">Editar ración</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setRacionToDelete(racion)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Eliminar ración</span>
                       </Button>
                       <Button variant="outline" size="sm" className="gap-2" onClick={() => setConsumoDialog({ racion, dias: "1" })}>
                         <Droplets className="h-4 w-4" /> Registrar consumo
@@ -661,9 +714,17 @@ export function SuplementacionModule() {
                           <TableCell className="text-right font-mono">
                             {formatNumber(ins.stock, 0)} {ins.unidad}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" onClick={() => openEditInsumo(ins)}>
+                          <TableCell className="text-right space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => openEditInsumo(ins)}>
                               Editar
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              onClick={() => setInsumoToDelete(ins)}
+                            >
+                              Eliminar
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -789,6 +850,42 @@ export function SuplementacionModule() {
           </div>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!racionToDelete} onOpenChange={(open) => {
+        if (!open && !deleteLoading) setRacionToDelete(null)
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar ración</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ración se eliminará del catálogo y dejará de descontar inventario. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading} onClick={() => setRacionToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={deleteLoading} onClick={confirmDeleteRacion} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!insumoToDelete} onOpenChange={(open) => {
+        if (!open && !deleteLoading) setInsumoToDelete(null)
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar insumo</AlertDialogTitle>
+            <AlertDialogDescription>
+              El insumo desaparecerá del catálogo y las raciones que lo usan deberán reconfigurarse. ¿Deseas continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading} onClick={() => setInsumoToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={deleteLoading} onClick={confirmDeleteInsumo} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
