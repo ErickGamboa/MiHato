@@ -26,6 +26,7 @@ import { Plus, TrendingUp, TrendingDown, Minus, AlertTriangle } from "lucide-rea
 import {
   type Animal,
   type Pesaje,
+  type Racion,
   formatNumber,
   calcGDP,
   getLotes,
@@ -42,14 +43,40 @@ import {
 } from "recharts"
 import { useDataStore } from "@/hooks/use-data-store"
 
+const SIN_RACION_VALUE = "__sin_racion__"
+
 export function PesajesModule() {
-  const { animales, pesajes, loading, createPesaje } = useDataStore()
+  const { animales, pesajes, raciones, loading, createPesaje } = useDataStore()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [filterLote, setFilterLote] = useState<string>("todos")
-  const [newForm, setNewForm] = useState({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", suplementacion: "" })
+  const [newForm, setNewForm] = useState({
+    animalId: "",
+    fecha: new Date().toISOString().split("T")[0],
+    peso: "",
+    suplementacion: "",
+    racionId: "",
+  })
+  const [columnFilters, setColumnFilters] = useState({
+    animal: "",
+    lote: "",
+    pesoIngreso: "",
+    pesoActual: "",
+    kgGanados: "",
+    gdp: "",
+    racion: "",
+    trend: "todos",
+    pesajes: "",
+  })
 
   const animalesActivos = animales.filter((a) => a.estado === "activo")
   const lotes = getLotes(animales)
+  const racionesActivas = useMemo(() => raciones.filter((r) => r.activa), [raciones])
+  const selectedAnimal = useMemo(() => animales.find((a) => a.id === newForm.animalId), [animales, newForm.animalId])
+  const racionesDisponibles = useMemo(() => {
+    if (!selectedAnimal) return racionesActivas
+    const delLote = racionesActivas.filter((r) => r.lote === selectedAnimal.lote)
+    return delLote.length > 0 ? delLote : racionesActivas
+  }, [racionesActivas, selectedAnimal])
 
   const animalData = useMemo(() => {
     return animalesActivos
@@ -82,9 +109,41 @@ export function PesajesModule() {
           diasDesdeUltimo,
           trend,
           numPesajes: animalPesajes.length,
+          lastRacionId: ultimoPesaje?.racionId,
+          lastSuplementacion: ultimoPesaje?.suplementacion,
         }
       })
   }, [animalesActivos, pesajes, filterLote])
+
+  const filteredAnimalData = useMemo(() => {
+    return animalData.filter((row) => {
+      const search = (value: string | undefined, filter: string) =>
+        !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
+
+      const matchesAnimal = search(row.animal.apodo || row.animal.id, columnFilters.animal) || row.animal.id.toLowerCase().includes(columnFilters.animal.toLowerCase())
+      const matchesLote = search(row.animal.lote, columnFilters.lote)
+      const matchesPesoIngreso = !columnFilters.pesoIngreso || `${row.animal.pesoIngreso}`.includes(columnFilters.pesoIngreso)
+      const matchesPesoActual = !columnFilters.pesoActual || `${row.ultimoPeso}`.includes(columnFilters.pesoActual)
+      const matchesKg = !columnFilters.kgGanados || `${row.kgGanados}`.includes(columnFilters.kgGanados)
+      const matchesGdp = !columnFilters.gdp || (row.gdp !== null && `${row.gdp}`.includes(columnFilters.gdp))
+      const matchesTrend = columnFilters.trend === "todos" || row.trend === columnFilters.trend
+      const matchesPesajes = !columnFilters.pesajes || `${row.numPesajes}`.includes(columnFilters.pesajes)
+      const racionNombre = row.lastRacionId ? racionesActivas.find((r) => r.id === row.lastRacionId)?.nombre : row.lastSuplementacion
+      const matchesRacion = search(racionNombre || "—", columnFilters.racion)
+
+      return (
+        matchesAnimal &&
+        matchesLote &&
+        matchesPesoIngreso &&
+        matchesPesoActual &&
+        matchesKg &&
+        matchesGdp &&
+        matchesTrend &&
+        matchesPesajes &&
+        matchesRacion
+      )
+    })
+  }, [animalData, columnFilters, racionesActivas])
 
   const gdpPorLoteData = lotes.map((lote) => {
     const animalesLote = animalesActivos.filter((a) => a.lote === lote)
@@ -125,6 +184,7 @@ export function PesajesModule() {
       fecha: newForm.fecha,
       peso: Number.parseFloat(newForm.peso),
       suplementacion: newForm.suplementacion || undefined,
+      racionId: newForm.racionId || undefined,
     }
     try {
       await createPesaje(newP)
@@ -134,7 +194,7 @@ export function PesajesModule() {
       return
     }
     setShowNewDialog(false)
-    setNewForm({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", suplementacion: "" })
+    setNewForm({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", suplementacion: "", racionId: "" })
   }
 
   if (loading) {
@@ -227,6 +287,23 @@ export function PesajesModule() {
                   <Label>Suplementación</Label>
                   <Input value={newForm.suplementacion} onChange={(e) => setNewForm({ ...newForm, suplementacion: e.target.value })} />
                 </div>
+                <div className="flex flex-col gap-2">
+                  <Label>Ración aplicada</Label>
+                  <Select
+                    value={newForm.racionId || SIN_RACION_VALUE}
+                    onValueChange={(v) => setNewForm({ ...newForm, racionId: v === SIN_RACION_VALUE ? "" : v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Seleccionar ración" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SIN_RACION_VALUE}>Sin ración</SelectItem>
+                      {racionesDisponibles.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.nombre} · {r.lote}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex justify-end gap-3 pt-4">
                 <Button variant="outline" onClick={() => setShowNewDialog(false)}>Cancelar</Button>
@@ -284,25 +361,102 @@ export function PesajesModule() {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Animal</TableHead>
-                  <TableHead>Lote</TableHead>
-                  <TableHead className="text-right">Peso Ing.</TableHead>
-                  <TableHead className="text-right">Peso Actual</TableHead>
-                  <TableHead className="text-right">Kg Ganados</TableHead>
-                  <TableHead className="text-right">GDP (kg/d)</TableHead>
-                  <TableHead className="text-center">Tendencia</TableHead>
-                  <TableHead className="text-right">Pesajes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {animalData.map(({ animal, gdp, ultimoPeso, kgGanados, trend, numPesajes }) => (
-                  <TableRow key={animal.id}>
-                    <TableCell>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{animal.apodo || animal.id}</p>
-                        <p className="text-xs text-muted-foreground">{animal.id} · {animal.raza}</p>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Animal</TableHead>
+                    <TableHead>Lote</TableHead>
+                    <TableHead className="text-right">Peso Ing.</TableHead>
+                    <TableHead className="text-right">Peso Actual</TableHead>
+                    <TableHead className="text-right">Kg Ganados</TableHead>
+                    <TableHead className="text-right">GDP (kg/d)</TableHead>
+                    <TableHead>Ración / Supl.</TableHead>
+                    <TableHead className="text-center">Tendencia</TableHead>
+                    <TableHead className="text-right">Pesajes</TableHead>
+                  </TableRow>
+                  <TableRow>
+                    <TableHead>
+                      <Input
+                        placeholder="Animal"
+                        value={columnFilters.animal}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, animal: e.target.value }))}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <Input
+                        placeholder="Lote"
+                        value={columnFilters.lote}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, lote: e.target.value }))}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <Input
+                        placeholder="Kg"
+                        value={columnFilters.pesoIngreso}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, pesoIngreso: e.target.value }))}
+                        className="text-right"
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <Input
+                        placeholder="Kg"
+                        value={columnFilters.pesoActual}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, pesoActual: e.target.value }))}
+                        className="text-right"
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <Input
+                        placeholder="Kg"
+                        value={columnFilters.kgGanados}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, kgGanados: e.target.value }))}
+                        className="text-right"
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <Input
+                        placeholder="GDP"
+                        value={columnFilters.gdp}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, gdp: e.target.value }))}
+                        className="text-right"
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <Input
+                        placeholder="Ración"
+                        value={columnFilters.racion}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, racion: e.target.value }))}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <Select value={columnFilters.trend} onValueChange={(v) => setColumnFilters((prev) => ({ ...prev, trend: v }))}>
+                        <SelectTrigger className="w-[130px]">
+                          <SelectValue placeholder="Tendencia" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todas</SelectItem>
+                          <SelectItem value="up">Sube</SelectItem>
+                          <SelectItem value="down">Baja</SelectItem>
+                          <SelectItem value="stalled">Estancada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableHead>
+                    <TableHead>
+                      <Input
+                        placeholder="#"
+                        value={columnFilters.pesajes}
+                        onChange={(e) => setColumnFilters((prev) => ({ ...prev, pesajes: e.target.value }))}
+                        className="text-right"
+                      />
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAnimalData.map(({ animal, gdp, ultimoPeso, kgGanados, trend, numPesajes, lastRacionId, lastSuplementacion }) => (
+                    <TableRow key={animal.id}>
+                      <TableCell>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{animal.apodo || animal.id}</p>
+                          <p className="text-xs text-muted-foreground">{animal.id} · {animal.raza}</p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -314,12 +468,17 @@ export function PesajesModule() {
                     <TableCell className="text-right font-mono">
                       {gdp !== null ? formatNumber(gdp, 2) : "—"}
                     </TableCell>
-                    <TableCell className="text-center">
-                      {trend === "up" && <TrendingUp className="mx-auto h-4 w-4 text-emerald-600" />}
-                      {trend === "down" && (
-                        <div className="flex items-center justify-center gap-1">
-                          <TrendingDown className="h-4 w-4 text-destructive" />
-                          <AlertTriangle className="h-3 w-3 text-warning" />
+                      <TableCell>
+                        {lastRacionId
+                          ? raciones.find((r) => r.id === lastRacionId)?.nombre || "—"
+                          : lastSuplementacion || "—"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {trend === "up" && <TrendingUp className="mx-auto h-4 w-4 text-emerald-600" />}
+                        {trend === "down" && (
+                          <div className="flex items-center justify-center gap-1">
+                            <TrendingDown className="h-4 w-4 text-destructive" />
+                            <AlertTriangle className="h-3 w-3 text-warning" />
                         </div>
                       )}
                       {trend === "stalled" && <Minus className="mx-auto h-4 w-4 text-muted-foreground" />}

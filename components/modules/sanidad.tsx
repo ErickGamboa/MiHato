@@ -45,6 +45,16 @@ export function SanidadModule() {
     tipo: "vacuna", producto: "", dosis: "", viaAplicacion: "Subcutánea",
     diagnostico: "", observaciones: "", diasRetiro: "0",
   })
+  const [eventoFilters, setEventoFilters] = useState({
+    fecha: "",
+    tipo: "",
+    target: "",
+    producto: "",
+    dosis: "",
+    via: "",
+    retiro: "",
+    estado: "",
+  })
 
   const animalesActivos = animales.filter((a) => a.estado === "activo")
   const lotes = getLotes(animales)
@@ -147,6 +157,26 @@ export function SanidadModule() {
     }
     return costosPorAnimal
   }, [eventos])
+
+  const filteredEventos = useMemo(() => {
+    return eventos.filter((ev) => {
+      const match = (value: string | undefined, filter: string) =>
+        !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
+      const target = ev.animalId ? `Animal ${ev.animalId}` : `Lote ${ev.lote}`
+      const retiro = ev.diasRetiro ? `${ev.diasRetiro} días` : "Sin retiro"
+      const estado = ev.fechaFinRetiro && new Date(ev.fechaFinRetiro) > new Date() ? "Retiro activo" : "Sin retiro"
+      return (
+        match(ev.fecha, eventoFilters.fecha) &&
+        match(ev.tipo, eventoFilters.tipo) &&
+        match(target, eventoFilters.target) &&
+        match(ev.producto, eventoFilters.producto) &&
+        match(ev.dosis, eventoFilters.dosis) &&
+        match(ev.viaAplicacion, eventoFilters.via) &&
+        match(retiro, eventoFilters.retiro) &&
+        match(estado, eventoFilters.estado)
+      )
+    })
+  }, [eventos, eventoFilters])
 
   if (loading) {
     return <div className="flex items-center justify-center p-8">Cargando datos...</div>
@@ -309,9 +339,67 @@ export function SanidadModule() {
                       <TableHead>Retiro</TableHead>
                       <TableHead>Estado</TableHead>
                     </TableRow>
+                    <TableRow>
+                      <TableHead>
+                        <Input
+                          placeholder="Fecha"
+                          value={eventoFilters.fecha}
+                          onChange={(e) => setEventoFilters((prev) => ({ ...prev, fecha: e.target.value }))}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <Input
+                          placeholder="Tipo"
+                          value={eventoFilters.tipo}
+                          onChange={(e) => setEventoFilters((prev) => ({ ...prev, tipo: e.target.value }))}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <Input
+                          placeholder="Animal/Lote"
+                          value={eventoFilters.target}
+                          onChange={(e) => setEventoFilters((prev) => ({ ...prev, target: e.target.value }))}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <Input
+                          placeholder="Producto"
+                          value={eventoFilters.producto}
+                          onChange={(e) => setEventoFilters((prev) => ({ ...prev, producto: e.target.value }))}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <Input
+                          placeholder="Dosis"
+                          value={eventoFilters.dosis}
+                          onChange={(e) => setEventoFilters((prev) => ({ ...prev, dosis: e.target.value }))}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <Input
+                          placeholder="Vía"
+                          value={eventoFilters.via}
+                          onChange={(e) => setEventoFilters((prev) => ({ ...prev, via: e.target.value }))}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <Input
+                          placeholder="Retiro"
+                          value={eventoFilters.retiro}
+                          onChange={(e) => setEventoFilters((prev) => ({ ...prev, retiro: e.target.value }))}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <Input
+                          placeholder="Estado"
+                          value={eventoFilters.estado}
+                          onChange={(e) => setEventoFilters((prev) => ({ ...prev, estado: e.target.value }))}
+                        />
+                      </TableHead>
+                    </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[...eventos]
+                    {[...filteredEventos]
                       .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
                       .map((ev) => {
                         const retiroActivo = ev.fechaFinRetiro && new Date(ev.fechaFinRetiro) > hoy

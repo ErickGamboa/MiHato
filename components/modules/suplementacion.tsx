@@ -87,6 +87,7 @@ export function SuplementacionModule() {
   const [racionToDelete, setRacionToDelete] = useState<Racion | null>(null)
   const [insumoToDelete, setInsumoToDelete] = useState<Insumo | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [insumoFilters, setInsumoFilters] = useState({ nombre: "", presentacion: "", precio: "", costo: "", stock: "", unidad: "" })
 
   const animalesActivos = useMemo(() => animales.filter((a) => a.estado === "activo"), [animales])
   const lotes = useMemo(() => getLotes(animales), [animales])
@@ -191,6 +192,20 @@ export function SuplementacionModule() {
       return i.stock < weeklyUse * 2
     })
   }, [insumos, raciones, animalesActivos])
+
+  const filteredInsumos = useMemo<Insumo[]>(() => {
+    return insumos.filter((ins: Insumo) => {
+      const match = (value: string | undefined, filter: string) =>
+        !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
+      const nombreMatch = match(ins.nombre, insumoFilters.nombre)
+      const presentacionMatch = match(ins.presentacion || "", insumoFilters.presentacion)
+      const unidadMatch = match(ins.unidad, insumoFilters.unidad)
+      const precioMatch = !insumoFilters.precio || `${ins.precio}`.includes(insumoFilters.precio)
+      const costoMatch = !insumoFilters.costo || `${ins.costoPorKg}`.includes(insumoFilters.costo)
+      const stockMatch = !insumoFilters.stock || `${ins.stock}`.includes(insumoFilters.stock)
+      return nombreMatch && presentacionMatch && unidadMatch && precioMatch && costoMatch && stockMatch
+    })
+  }, [insumos, insumoFilters])
 
   const resetInsumoForm = () => {
     setInsumoForm({ nombre: "", precio: "", presentacion: "", costoPorKg: "", stock: "", unidad: "kg" })
@@ -703,9 +718,56 @@ export function SuplementacionModule() {
                         <TableHead className="text-right">Stock</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
+                      <TableRow>
+                        <TableHead>
+                          <Input
+                            placeholder="Nombre"
+                            value={insumoFilters.nombre}
+                            onChange={(e) => setInsumoFilters((prev) => ({ ...prev, nombre: e.target.value }))}
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <Input
+                            placeholder="Presentación"
+                            value={insumoFilters.presentacion}
+                            onChange={(e) => setInsumoFilters((prev) => ({ ...prev, presentacion: e.target.value }))}
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <Input
+                            placeholder="Precio"
+                            value={insumoFilters.precio}
+                            onChange={(e) => setInsumoFilters((prev) => ({ ...prev, precio: e.target.value }))}
+                            className="text-right"
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <Input
+                            placeholder="Costo"
+                            value={insumoFilters.costo}
+                            onChange={(e) => setInsumoFilters((prev) => ({ ...prev, costo: e.target.value }))}
+                            className="text-right"
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <Input
+                            placeholder="Stock"
+                            value={insumoFilters.stock}
+                            onChange={(e) => setInsumoFilters((prev) => ({ ...prev, stock: e.target.value }))}
+                            className="text-right"
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <Input
+                            placeholder="Unidad"
+                            value={insumoFilters.unidad}
+                            onChange={(e) => setInsumoFilters((prev) => ({ ...prev, unidad: e.target.value }))}
+                          />
+                        </TableHead>
+                      </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {insumos.map((ins) => (
+                      {filteredInsumos.map((ins) => (
                         <TableRow key={ins.id}>
                           <TableCell className="font-medium">{ins.nombre}</TableCell>
                           <TableCell className="text-muted-foreground">{ins.presentacion}</TableCell>

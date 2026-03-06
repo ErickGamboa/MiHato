@@ -60,6 +60,18 @@ export function InventarioModule() {
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showCambioLoteDialog, setShowCambioLoteDialog] = useState(false)
   const [cambioLoteForm, setCambioLoteForm] = useState({ fecha: new Date().toISOString().split("T")[0], loteOrigen: "", loteDestino: "", motivo: "" })
+  const [columnFilters, setColumnFilters] = useState({
+    id: "",
+    diio: "",
+    apodo: "",
+    raza: "",
+    genero: "",
+    lote: "",
+    pesoIngreso: "",
+    pesoActual: "",
+    gdp: "",
+    estado: "",
+  })
 
   // New animal form
   const [newForm, setNewForm] = useState({
@@ -90,6 +102,41 @@ export function InventarioModule() {
       return matchSearch && matchGenero && matchLote && matchEstado
     })
   }, [animales, search, filterGenero, filterLote, filterEstado])
+
+  const columnFiltered = useMemo(() => {
+    return filtered.filter((animal) => {
+      const ultimoPeso = getUltimoPeso(animal.id, pesajes)
+      const animalPesajes = pesajes.filter((p: Pesaje) => p.animalId === animal.id)
+      const gdp = calcGDP(animalPesajes)
+
+      const matches = (value: string | undefined, filter: string) =>
+        !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
+
+      const idMatch = matches(animal.id, columnFilters.id)
+      const diioMatch = matches(animal.diio, columnFilters.diio)
+      const apodoMatch = matches(animal.apodo, columnFilters.apodo)
+      const razaMatch = matches(animal.raza, columnFilters.raza)
+      const generoMatch = matches(animal.genero, columnFilters.genero)
+      const loteMatch = matches(animal.lote, columnFilters.lote)
+      const pesoIngresoMatch = !columnFilters.pesoIngreso || `${animal.pesoIngreso}`.includes(columnFilters.pesoIngreso)
+      const pesoActualMatch = !columnFilters.pesoActual || `${ultimoPeso ?? ""}`.includes(columnFilters.pesoActual)
+      const gdpMatch = !columnFilters.gdp || (gdp !== null && `${gdp}`.includes(columnFilters.gdp))
+      const estadoMatch = matches(animal.estado, columnFilters.estado)
+
+      return (
+        idMatch &&
+        diioMatch &&
+        apodoMatch &&
+        razaMatch &&
+        generoMatch &&
+        loteMatch &&
+        pesoIngresoMatch &&
+        pesoActualMatch &&
+        gdpMatch &&
+        estadoMatch
+      )
+    })
+  }, [filtered, columnFilters, pesajes])
 
   const handleCreateAnimal = async () => {
     // Validación de campos obligatorios
@@ -419,9 +466,85 @@ export function InventarioModule() {
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
+                <TableRow>
+                  <TableHead>
+                    <Input
+                      placeholder="ID"
+                      value={columnFilters.id}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, id: e.target.value }))}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Input
+                      placeholder="DIIO"
+                      value={columnFilters.diio}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, diio: e.target.value }))}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Input
+                      placeholder="Apodo"
+                      value={columnFilters.apodo}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, apodo: e.target.value }))}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Input
+                      placeholder="Raza"
+                      value={columnFilters.raza}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, raza: e.target.value }))}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Input
+                      placeholder="Género"
+                      value={columnFilters.genero}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, genero: e.target.value }))}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Input
+                      placeholder="Lote"
+                      value={columnFilters.lote}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, lote: e.target.value }))}
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Input
+                      placeholder="kg"
+                      value={columnFilters.pesoIngreso}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, pesoIngreso: e.target.value }))}
+                      className="text-right"
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Input
+                      placeholder="kg"
+                      value={columnFilters.pesoActual}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, pesoActual: e.target.value }))}
+                      className="text-right"
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Input
+                      placeholder="GDP"
+                      value={columnFilters.gdp}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, gdp: e.target.value }))}
+                      className="text-right"
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <Input
+                      placeholder="Estado"
+                      value={columnFilters.estado}
+                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, estado: e.target.value }))}
+                    />
+                  </TableHead>
+                  <TableHead />
+                </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((animal) => {
+                {columnFiltered.map((animal) => {
                   const ultimoPeso = getUltimoPeso(animal.id, pesajes)
                   const animalPesajes = pesajes.filter((p: Pesaje) => p.animalId === animal.id)
                   const gdp = calcGDP(animalPesajes)

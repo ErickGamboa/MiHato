@@ -53,6 +53,7 @@ export interface Pesaje {
   fecha: string
   peso: number
   suplementacion?: string
+  racionId?: string
 }
 
 export interface Insumo {
@@ -193,6 +194,7 @@ type PesajeRow = {
   fecha: string
   peso: number
   suplementacion: string | null
+  racion_id: string | null
 }
 
 type InsumoRow = {
@@ -321,6 +323,7 @@ function mapPesaje(row: PesajeRow): Pesaje {
     fecha: row.fecha,
     peso: row.peso,
     suplementacion: row.suplementacion ?? undefined,
+    racionId: row.racion_id ?? undefined,
   }
 }
 
@@ -561,12 +564,19 @@ export async function isAnimalIdentifierDuplicated(diio?: string, idSubasta?: st
   return (count ?? 0) > 0
 }
 
-export async function createPesajeRecord(pesaje: { animalId: string; fecha: string; peso: number; suplementacion?: string }): Promise<Pesaje> {
+export async function createPesajeRecord(pesaje: {
+  animalId: string
+  fecha: string
+  peso: number
+  suplementacion?: string
+  racionId?: string
+}): Promise<Pesaje> {
   const payload = {
     animal_id: pesaje.animalId,
     fecha: pesaje.fecha,
     peso: pesaje.peso,
     suplementacion: pesaje.suplementacion ?? null,
+    racion_id: pesaje.racionId ?? null,
   }
   const { data, error } = await bovinos("pesajes").insert(payload).select().single()
   if (error) throw error

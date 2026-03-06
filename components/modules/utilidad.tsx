@@ -55,6 +55,17 @@ export function UtilidadModule() {
     animalId: "", fechaVenta: new Date().toISOString().split("T")[0], canalVenta: "",
     pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0",
   })
+  const [ventaFilters, setVentaFilters] = useState({
+    animal: "",
+    canal: "",
+    peso: "",
+    ingreso: "",
+    costo: "",
+    utilidad: "",
+    margen: "",
+    costoKg: "",
+    costoDia: "",
+  })
 
   const animalesVendidos = animales.filter((a) => a.estado === "vendido")
   const animalesActivos = animales.filter((a) => a.estado === "activo")
@@ -131,6 +142,31 @@ export function UtilidadModule() {
   const margenPromedio = ventaCalcs.length > 0
     ? ventaCalcs.reduce((s, v) => s + v.margen, 0) / ventaCalcs.length
     : 0
+
+  const filteredVentaCalcs = useMemo(() => {
+    return ventaCalcs.filter((vc) => {
+      const match = (value: string | undefined, filter: string) =>
+        !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
+      const animalName = vc.animal.apodo || vc.animal.id
+      const ingreso = formatCurrency(vc.ingresoNeto)
+      const costo = formatCurrency(vc.costoTotal)
+      const utilidad = formatCurrency(vc.utilidadNeta)
+      const margen = `${formatNumber(vc.margen, 1)}%`
+      const costoKg = formatCurrency(vc.costoPorKgProducido)
+      const costoDia = formatCurrency(vc.costoPorDia)
+      return (
+        match(animalName, ventaFilters.animal) &&
+        match(vc.venta.canalVenta, ventaFilters.canal) &&
+        (!ventaFilters.peso || `${vc.venta.pesoVenta}`.includes(ventaFilters.peso)) &&
+        (!ventaFilters.ingreso || ingreso.toLowerCase().includes(ventaFilters.ingreso.toLowerCase())) &&
+        (!ventaFilters.costo || costo.toLowerCase().includes(ventaFilters.costo.toLowerCase())) &&
+        (!ventaFilters.utilidad || utilidad.toLowerCase().includes(ventaFilters.utilidad.toLowerCase())) &&
+        (!ventaFilters.margen || margen.toLowerCase().includes(ventaFilters.margen.toLowerCase())) &&
+        (!ventaFilters.costoKg || costoKg.toLowerCase().includes(ventaFilters.costoKg.toLowerCase())) &&
+        (!ventaFilters.costoDia || costoDia.toLowerCase().includes(ventaFilters.costoDia.toLowerCase()))
+      )
+    })
+  }, [ventaCalcs, ventaFilters])
 
   const handleNewVenta = async () => {
     if (!newVenta.animalId || !newVenta.fechaVenta || !newVenta.pesoVenta || !newVenta.precioPorKg) {
