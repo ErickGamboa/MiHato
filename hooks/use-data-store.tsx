@@ -10,6 +10,7 @@ import {
   type Escenario,
   type EventoSanitario,
   type Insumo,
+  type Lot,
   type LotMovement,
   type MedicamentoStock,
   type Pesaje,
@@ -50,6 +51,14 @@ type CreateVentaInput = Omit<Venta, "id"> & { id?: string }
 type CreateCostoInput = Omit<Costo, "id"> & { id?: string }
 type CreateLotMovementInput = Omit<LotMovement, "id"> & { id?: string }
 type CreateChangeRecordInput = Omit<ChangeRecord, "id"> & { id?: string }
+type CreateLotInput = Omit<Lot, "id"> & { id?: string }
+type UpdateLotInput = Partial<Omit<Lot, "id">>
+type MoveAnimalToLotInput = {
+  animalId: string
+  loteDestino: string
+  motivo: string
+  fecha?: string
+}
 
 interface DataStoreValue extends DataSnapshot {
   loading: boolean
@@ -73,7 +82,11 @@ interface DataStoreValue extends DataSnapshot {
   createEscenario: (escenario: CreateEscenarioInput) => Promise<Escenario>
   createVenta: (venta: CreateVentaInput) => Promise<Venta>
   createCosto: (costo: CreateCostoInput) => Promise<Costo>
+  createLot: (lot: CreateLotInput) => Promise<Lot>
+  updateLot: (id: string, updates: UpdateLotInput) => Promise<Lot>
+  deleteLot: (id: string) => Promise<void>
   createLotMovement: (movement: CreateLotMovementInput) => Promise<LotMovement>
+  moveAnimalToLot: (input: MoveAnimalToLotInput) => Promise<void>
   createChangeRecord: (record: CreateChangeRecordInput) => Promise<ChangeRecord>
   isIdentifierDuplicated: (diio?: string, idSubasta?: string, excludeId?: string) => Promise<boolean>
 }
@@ -82,6 +95,7 @@ const DataStoreContext = createContext<DataStoreValue | null>(null)
 
 const createEmptySnapshot = (): DataSnapshot => ({
   animales: [],
+  lotes: [],
   pesajes: [],
   insumos: [],
   raciones: [],
@@ -102,6 +116,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (showSpinner) setLoading(true)
     try {
       const snapshot = await fetchDataSnapshot()
+      const fallbackLots = snapshot.lotes
+      try {
+        const response = await fetch("/api/lotes")
+        if (response.ok) {
+          const lotes = (await response.json()) as Lot[]
+          const merged = [...lotes]
+          for (const lot of fallbackLots) {
+            if (!lot.persisted && !merged.some((p) => p.nombre === lot.nombre)) {
+              merged.push(lot)
+            }
+          }
+          snapshot.lotes = merged
+        }
+      } catch (error) {
+        console.warn("No se pudo cargar la lista de lotes desde la API", error)
+      }
       setState(snapshot)
     } finally {
       setLoading(false)
@@ -364,6 +394,57 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [refresh]
   )
 
+  const createLot = useCallback(
+    async (input: CreateLotInput) => {
+      const response = await fetch("/api/lotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        throw new Error(payload?.error ?? "No se pudo crear el lote")
+      }
+      const record = (await response.json()) as Lot
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
+
+  const updateLot = useCallback(
+    async (id: string, updates: UpdateLotInput) => {
+      const response = await fetch(`/api/lotes/${id}?id=${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        throw new Error(payload?.error ?? "No se pudo actualizar el lote")
+      }
+      const record = (await response.json()) as Lot
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
+
+  const deleteLot = useCallback(
+    async (id?: string) => {
+      if (!id || id === "undefined") {
+        throw new Error("ID de lote inválido")
+      }
+      const response = await fetch(`/api/lotes/${id}?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        throw new Error(payload?.error ?? "No se pudo eliminar el lote")
+      }
+      await refresh()
+    },
+    [refresh]
+  )
+
   const createLotMovement = useCallback(
     async (input: CreateLotMovementInput) => {
       const record = await createLotMovementRecord(input)
@@ -371,6 +452,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return record
     },
     [refresh]
+  )
+
+  const moveAnimalToLot = useCallback(
+    async ({ animalId, loteDestino, motivo, fecha }: MoveAnimalToLotInput) => {
+      const animal = state.animales.find((a) => a.id === animalId)
+      if (!animal) return
+      if (animal.lote === loteDestino) return
+      const movementDate = fecha ?? getCostaRicaNow().toISOString()
+      await updateAnimalDb(animalId, { lote: loteDestino })
+      await createLotMovementRecord({
+        animalId,
+        loteOrigen: animal.lote,
+        loteDestino,
+        motivo,
+        fecha: movementDate,
+      })
+      await createChangeRecordEntry({
+        animalId,
+        fecha: movementDate,
+        campo: "lote",
+        valorAnterior: animal.lote,
+        valorNuevo: loteDestino,
+      })
+      await refresh()
+    },
+    [refresh, state.animales]
   )
 
   const createChangeRecord = useCallback(
@@ -410,11 +517,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createEscenario,
       createVenta,
       createCosto,
+      createLot,
+      updateLot,
+      deleteLot,
       createLotMovement,
+      moveAnimalToLot,
       createChangeRecord,
       isIdentifierDuplicated,
     }),
-    [state, loading, refresh, createAnimal, updateAnimal, createPesaje, createInsumo, updateInsumo, adjustInsumoStock, createEvento, createMedicamento, updateMedicamento, createRacion, updateRacion, toggleRacion, autoConsumeRaciones, deactivateExpiredRaciones, createEscenario, createVenta, createCosto, createLotMovement, createChangeRecord, isIdentifierDuplicated]
+    [state, loading, refresh, createAnimal, updateAnimal, createPesaje, createInsumo, updateInsumo, adjustInsumoStock, createEvento, createMedicamento, updateMedicamento, createRacion, updateRacion, toggleRacion, autoConsumeRaciones, deactivateExpiredRaciones, createEscenario, createVenta, createCosto, createLot, updateLot, deleteLot, createLotMovement, moveAnimalToLot, createChangeRecord, isIdentifierDuplicated]
   )
 
   return <DataStoreContext.Provider value={value}>{children}</DataStoreContext.Provider>

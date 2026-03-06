@@ -29,6 +29,15 @@ export interface Animal {
   historialCambios: ChangeRecord[]
 }
 
+export interface Lot {
+  id: string
+  nombre: string
+  descripcion?: string
+  capacidad?: number
+  notas?: string
+  persisted?: boolean
+}
+
 export interface LotMovement {
   id: string
   animalId?: string
@@ -141,6 +150,7 @@ export interface Costo {
 
 export interface DataSnapshot {
   animales: Animal[]
+  lotes: Lot[]
   pesajes: Pesaje[]
   insumos: Insumo[]
   raciones: Racion[]
@@ -155,6 +165,7 @@ export interface DataSnapshot {
 
 const emptySnapshot: DataSnapshot = {
   animales: [],
+  lotes: [],
   pesajes: [],
   insumos: [],
   raciones: [],
@@ -195,6 +206,14 @@ type PesajeRow = {
   peso: number
   suplementacion: string | null
   racion_id: string | null
+}
+
+type LotRow = {
+  id: string
+  nombre: string
+  descripcion: string | null
+  capacidad: number | null
+  notas: string | null
 }
 
 type InsumoRow = {
@@ -424,6 +443,17 @@ function mapCosto(row: CostoRow): Costo {
   }
 }
 
+function mapLot(row: LotRow): Lot {
+  return {
+    id: row.id,
+    nombre: row.nombre,
+    descripcion: row.descripcion ?? undefined,
+    capacidad: row.capacidad ?? undefined,
+    notas: row.notas ?? undefined,
+    persisted: true,
+  }
+}
+
 function mapLotMovement(row: LotMovementRow): LotMovement {
   return {
     id: row.id,
@@ -454,7 +484,7 @@ async function fetchTable<T>(table: string): Promise<T[]> {
 
 export async function fetchDataSnapshot(): Promise<DataSnapshot> {
   try {
-    const [animalRows, pesajeRows, insumoRows, racionRows, eventoRows, medicamentoRows, escenarioRows, ventaRows, costoRows, lotRows, changeRows] =
+    const [animalRows, pesajeRows, insumoRows, racionRows, eventoRows, medicamentoRows, escenarioRows, ventaRows, costoRows, lotMovementRows, changeRows] =
       await Promise.all([
         fetchTable<AnimalRow>("animales"),
         fetchTable<PesajeRow>("pesajes"),
@@ -469,7 +499,14 @@ export async function fetchDataSnapshot(): Promise<DataSnapshot> {
         fetchTable<ChangeRecordRow>("change_records"),
       ])
 
-    const lotMovements = lotRows.map(mapLotMovement)
+    let lotDefinitionRows: LotRow[] = []
+    try {
+      lotDefinitionRows = await fetchTable<LotRow>("lotes")
+    } catch (error) {
+      console.warn("Could not load lotes table, falling back to derived lots", error)
+    }
+
+    const lotMovements = lotMovementRows.map(mapLotMovement)
     const changeRecords = changeRows.map(mapChangeRecord)
 
     const animales = animalRows.map(mapAnimal).map((animal) => ({
@@ -478,8 +515,15 @@ export async function fetchDataSnapshot(): Promise<DataSnapshot> {
       historialCambios: changeRecords.filter((cr) => cr.animalId === animal.id),
     }))
 
+    const persistedLots = lotDefinitionRows.map(mapLot)
+    const derivedLots = getLotes(animales)
+      .filter((nombre) => !persistedLots.some((lot) => lot.nombre === nombre))
+      .map((nombre) => ({ id: nombre, nombre, persisted: false }))
+    const lotes = [...persistedLots, ...derivedLots]
+
     return {
       animales,
+      lotes,
       pesajes: pesajeRows.map(mapPesaje),
       insumos: insumoRows.map(mapInsumo),
       raciones: racionRows.map(mapRacion),

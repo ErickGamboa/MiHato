@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -26,7 +28,6 @@ import {
 import {
   Search,
   Plus,
-  Filter,
   Eye,
   ArrowLeft,
   Beef,
@@ -34,6 +35,8 @@ import {
   Syringe,
   Clock,
   ArrowRightLeft,
+  Trash2,
+  Edit3,
 } from "lucide-react"
 import {
   type Animal,
@@ -41,6 +44,7 @@ import {
   type Gender,
   type Pesaje,
   type EventoSanitario,
+  type Lot,
   formatCurrency,
   formatNumber,
   getStatusColor,
@@ -51,7 +55,19 @@ import {
 import { useDataStore } from "@/hooks/use-data-store"
 
 export function InventarioModule() {
-  const { animales, pesajes, eventos, loading, createAnimal, isIdentifierDuplicated } = useDataStore()
+  const {
+    animales,
+    lotes: lotDefinitions,
+    pesajes,
+    eventos,
+    loading,
+    createAnimal,
+    isIdentifierDuplicated,
+    createLot,
+    updateLot,
+    deleteLot,
+    moveAnimalToLot,
+  } = useDataStore()
   const [search, setSearch] = useState("")
   const [filterGenero, setFilterGenero] = useState<string>("todos")
   const [filterLote, setFilterLote] = useState<string>("todos")
@@ -59,7 +75,12 @@ export function InventarioModule() {
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [showCambioLoteDialog, setShowCambioLoteDialog] = useState(false)
+  const [showManageLoteDialog, setShowManageLoteDialog] = useState(false)
+  const [selectedAnimalIds, setSelectedAnimalIds] = useState<string[]>([])
+  const [moveTargets, setMoveTargets] = useState<string[]>([])
   const [cambioLoteForm, setCambioLoteForm] = useState({ fecha: new Date().toISOString().split("T")[0], loteOrigen: "", loteDestino: "", motivo: "" })
+  const [lotForm, setLotForm] = useState({ nombre: "", descripcion: "", capacidad: "", notas: "" })
+  const [editingLotId, setEditingLotId] = useState<string | null>(null)
   const [columnFilters, setColumnFilters] = useState({
     id: "",
     diio: "",
@@ -81,7 +102,21 @@ export function InventarioModule() {
     apodo: "", lote: "L-01", precioPorKg: "", costoTransporte: "0", comision: "0",
   })
 
-  const lotes = getLotes(animales)
+  const lotCatalog = useMemo<Lot[]>(() => {
+    if (lotDefinitions.length > 0) {
+      return lotDefinitions
+    }
+    return getLotes(animales).map((nombre) => ({ id: nombre, nombre, persisted: false }))
+  }, [lotDefinitions, animales])
+
+  const lotNames = useMemo(() => [...new Set(lotCatalog.map((lot) => lot.nombre))].sort(), [lotCatalog])
+
+  const lotesWithCounts = useMemo(() => {
+    return lotCatalog.map((lot) => ({
+      lot,
+      animalesCount: animales.filter((a) => a.lote === lot.nombre).length,
+    }))
+  }, [lotCatalog, animales])
 
   const filtered = useMemo(() => {
     return animales.filter((a) => {
@@ -137,6 +172,161 @@ export function InventarioModule() {
       )
     })
   }, [filtered, columnFilters, pesajes])
+
+  const selectedAnimals = useMemo(() => animales.filter((a) => selectedAnimalIds.includes(a.id)), [animales, selectedAnimalIds])
+  const moveTargetAnimals = useMemo(() => animales.filter((a) => moveTargets.includes(a.id)), [animales, moveTargets])
+  const selectionCount = selectedAnimals.length
+  const allSelected = columnFiltered.length > 0 && columnFiltered.every((animal) => selectedAnimalIds.includes(animal.id))
+
+  const resetLotForm = () => {
+    setLotForm({ nombre: "", descripcion: "", capacidad: "", notas: "" })
+    setEditingLotId(null)
+  }
+
+  const handleManageDialogChange = (open: boolean) => {
+    setShowManageLoteDialog(open)
+    if (!open) {
+      resetLotForm()
+    }
+  }
+
+  const handleEditLot = (lot: Lot) => {
+    setEditingLotId(lot.persisted ? lot.id ?? null : null)
+    setLotForm({
+      nombre: lot.nombre,
+      descripcion: lot.descripcion ?? "",
+      capacidad: lot.capacidad ? String(lot.capacidad) : "",
+      notas: lot.notas ?? "",
+    })
+    setShowManageLoteDialog(true)
+  }
+
+  const handleSaveLot = async () => {
+    const nombre = lotForm.nombre.trim()
+    if (!nombre) {
+      alert("El nombre del lote es obligatorio.")
+      return
+    }
+    const nombreLower = nombre.toLowerCase()
+    const payload = {
+      nombre,
+      descripcion: lotForm.descripcion.trim() ? lotForm.descripcion.trim() : undefined,
+      capacidad: lotForm.capacidad ? Number.parseFloat(lotForm.capacidad) : undefined,
+      notas: lotForm.notas.trim() ? lotForm.notas.trim() : undefined,
+    }
+    try {
+      if (editingLotId) {
+        const duplicate = lotCatalog.some((lot) => lot.persisted && lot.nombre.toLowerCase() === nombreLower && lot.id !== editingLotId)
+        if (duplicate) {
+          alert("Ya existe un lote con ese nombre.")
+          return
+        }
+        await updateLot(editingLotId, payload)
+      } else {
+        const duplicate = lotCatalog.some((lot) => lot.persisted && lot.nombre.toLowerCase() === nombreLower)
+        if (duplicate) {
+          alert("Ya existe un lote con ese nombre.")
+          return
+        }
+        await createLot(payload)
+      }
+      resetLotForm()
+      setShowManageLoteDialog(false)
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo guardar el lote. Intente nuevamente.")
+    }
+  }
+
+  const handleDeleteLot = async (lot: Lot) => {
+    if (!lot.persisted || !lot.id) {
+      alert("Este lote proviene del histórico y no puede eliminarse.")
+      return
+    }
+    const animalesCount = animales.filter((a) => a.lote === lot.nombre).length
+    if (animalesCount > 0) {
+      alert("No puede eliminar un lote con animales asignados.")
+      return
+    }
+    if (!confirm(`¿Eliminar el lote "${lot.nombre}"?`)) return
+    try {
+      await deleteLot(lot.id)
+      if (newForm.lote === lot.nombre) {
+        setNewForm((prev) => ({ ...prev, lote: lotNames[0] ?? "" }))
+      }
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo eliminar el lote.")
+    }
+  }
+
+  const toggleSelectAnimal = (id: string, checked: boolean) => {
+    setSelectedAnimalIds((prev) => {
+      if (checked) {
+        if (prev.includes(id)) return prev
+        return [...prev, id]
+      }
+      return prev.filter((value) => value !== id)
+    })
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedAnimalIds(columnFiltered.map((animal) => animal.id))
+    } else {
+      setSelectedAnimalIds([])
+    }
+  }
+
+  const resetCambioForm = () => {
+    setCambioLoteForm({ fecha: new Date().toISOString().split("T")[0], loteOrigen: "", loteDestino: "", motivo: "" })
+  }
+
+  const handleMoveDialogChange = (open: boolean) => {
+    setShowCambioLoteDialog(open)
+    if (!open) {
+      setMoveTargets([])
+      resetCambioForm()
+    }
+  }
+
+  const handleOpenMoveDialog = (ids: string[]) => {
+    const unique = Array.from(new Set(ids))
+    if (unique.length === 0) return
+    setMoveTargets(unique)
+    const lotesSelec = animales.filter((a) => unique.includes(a.id)).map((a) => a.lote)
+    const origenSet = new Set(lotesSelec)
+    const origenValue = origenSet.size === 1 ? Array.from(origenSet)[0] : "Múltiples"
+    setCambioLoteForm({
+      fecha: new Date().toISOString().split("T")[0],
+      loteOrigen: origenValue,
+      loteDestino: "",
+      motivo: "",
+    })
+    setShowCambioLoteDialog(true)
+  }
+
+  const handleMoveAnimals = async () => {
+    if (!cambioLoteForm.loteDestino) {
+      alert("Seleccione un lote destino.")
+      return
+    }
+    try {
+      for (const animalId of moveTargets) {
+        await moveAnimalToLot({
+          animalId,
+          loteDestino: cambioLoteForm.loteDestino,
+          motivo: cambioLoteForm.motivo || "Reasignación de lote",
+          fecha: cambioLoteForm.fecha,
+        })
+      }
+      setSelectedAnimalIds([])
+      handleMoveDialogChange(false)
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo mover a los animales. Intente de nuevo.")
+    }
+  }
 
   const handleCreateAnimal = async () => {
     // Validación de campos obligatorios
@@ -222,14 +412,18 @@ export function InventarioModule() {
             {filtered.length} animales encontrados
           </p>
         </div>
-        <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nuevo Animal
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowManageLoteDialog(true)}>
+            Gestionar lotes
+          </Button>
+          <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Nuevo Animal
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Registrar Nuevo Animal</DialogTitle>
             </DialogHeader>
@@ -327,12 +521,14 @@ export function InventarioModule() {
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {lotes.map((l) => (
-                      <SelectItem key={l} value={l}>{l}</SelectItem>
+                    {lotNames.map((loteNombre) => (
+                      <SelectItem key={loteNombre} value={loteNombre}>{loteNombre}</SelectItem>
                     ))}
-                    <SelectItem value="L-nuevo">Nuevo Lote</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button type="button" variant="link" className="justify-start p-0 text-left text-sm font-normal" onClick={() => setShowManageLoteDialog(true)}>
+                  Gestionar lotes
+                </Button>
               </div>
               <div className="flex flex-col gap-2">
                 <Label>Precio por kg *</Label>
@@ -393,6 +589,7 @@ export function InventarioModule() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Search + Filters */}
@@ -425,8 +622,8 @@ export function InventarioModule() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  {lotes.map((l) => (
-                    <SelectItem key={l} value={l}>{l}</SelectItem>
+                  {lotNames.map((loteNombre) => (
+                    <SelectItem key={loteNombre} value={loteNombre}>{loteNombre}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -447,6 +644,22 @@ export function InventarioModule() {
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-4 py-3">
+        <p className="text-sm text-muted-foreground">
+          {selectionCount > 0 ? `${selectionCount} animales seleccionados` : "Selecciona animales para moverlos de lote"}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          disabled={selectionCount === 0}
+          onClick={() => handleOpenMoveDialog(selectedAnimalIds)}
+        >
+          <ArrowRightLeft className="h-4 w-4" />
+          Mover selección
+        </Button>
+      </div>
+
       {/* Table */}
       <Card>
         <CardContent className="p-0">
@@ -454,6 +667,13 @@ export function InventarioModule() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10 text-center">
+                    <Checkbox
+                      aria-label="Seleccionar todos"
+                      checked={allSelected}
+                      onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
+                    />
+                  </TableHead>
                   <TableHead>ID</TableHead>
                   <TableHead>DIIO</TableHead>
                   <TableHead>Apodo</TableHead>
@@ -467,6 +687,7 @@ export function InventarioModule() {
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
                 <TableRow>
+                  <TableHead />
                   <TableHead>
                     <Input
                       placeholder="ID"
@@ -550,6 +771,13 @@ export function InventarioModule() {
                   const gdp = calcGDP(animalPesajes)
                   return (
                     <TableRow key={animal.id}>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          aria-label={`Seleccionar ${animal.id}`}
+                          checked={selectedAnimalIds.includes(animal.id)}
+                          onCheckedChange={(checked) => toggleSelectAnimal(animal.id, Boolean(checked))}
+                        />
+                      </TableCell>
                       <TableCell className="font-mono text-xs font-medium">{animal.id}</TableCell>
                       <TableCell className="text-xs">{animal.diio || "—"}</TableCell>
                       <TableCell className="font-medium">{animal.apodo || "—"}</TableCell>
@@ -570,7 +798,7 @@ export function InventarioModule() {
                           {animal.estado}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="flex justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -578,6 +806,14 @@ export function InventarioModule() {
                         >
                           <Eye className="h-4 w-4" />
                           <span className="sr-only">Ver detalle</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenMoveDialog([animal.id])}
+                        >
+                          <ArrowRightLeft className="h-4 w-4" />
+                          <span className="sr-only">Mover lote</span>
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -588,6 +824,148 @@ export function InventarioModule() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showManageLoteDialog} onOpenChange={handleManageDialogChange}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Gestión de lotes</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
+            <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+              {lotesWithCounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aún no hay lotes definidos. Cree uno nuevo para comenzar.</p>
+              ) : (
+                lotesWithCounts.map(({ lot, animalesCount }) => {
+                  const isPersisted = Boolean(lot.persisted && lot.id)
+                  return (
+                    <div key={lot.id} className="flex items-start justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{lot.nombre}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {animalesCount} {animalesCount === 1 ? "animal" : "animales"}
+                          {lot.capacidad ? ` · Capacidad ${lot.capacidad}` : ""}
+                        </p>
+                        {lot.descripcion && <p className="text-xs text-muted-foreground">{lot.descripcion}</p>}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditLot(lot)}>
+                          <Edit3 className="h-4 w-4" />
+                          <span className="sr-only">Editar lote</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={!isPersisted}
+                          onClick={() => handleDeleteLot(lot)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Eliminar lote</span>
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-sm font-medium text-foreground">{editingLotId ? "Editar lote" : "Nuevo lote"}</p>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <Label>Nombre *</Label>
+                  <Input value={lotForm.nombre} onChange={(e) => setLotForm((prev) => ({ ...prev, nombre: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Descripción</Label>
+                  <Textarea value={lotForm.descripcion} onChange={(e) => setLotForm((prev) => ({ ...prev, descripcion: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Capacidad (cabezas)</Label>
+                  <Input
+                    type="number"
+                    value={lotForm.capacidad}
+                    onChange={(e) => setLotForm((prev) => ({ ...prev, capacidad: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Notas</Label>
+                  <Textarea value={lotForm.notas} onChange={(e) => setLotForm((prev) => ({ ...prev, notas: e.target.value }))} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button onClick={handleSaveLot}>{editingLotId ? "Guardar cambios" : "Crear lote"}</Button>
+                  {editingLotId && (
+                    <Button variant="ghost" onClick={resetLotForm}>
+                      Limpiar formulario
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCambioLoteDialog} onOpenChange={handleMoveDialogChange}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Mover animales de lote</DialogTitle>
+          </DialogHeader>
+          {moveTargetAnimals.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Seleccione animales para cambiar de lote.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <p className="font-medium text-foreground">
+                  {moveTargetAnimals.length} {moveTargetAnimals.length === 1 ? "animal" : "animales"} seleccionado(s)
+                </p>
+                <ul className="mt-2 space-y-1 text-muted-foreground">
+                  {moveTargetAnimals.map((animal) => (
+                    <li key={animal.id}>• {animal.apodo || animal.id} — {animal.lote}</li>
+                  ))}
+                </ul>
+                {cambioLoteForm.loteOrigen && (
+                  <p className="mt-2 text-xs text-muted-foreground">Origen: {cambioLoteForm.loteOrigen}</p>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Fecha *</Label>
+                  <Input
+                    type="date"
+                    value={cambioLoteForm.fecha}
+                    onChange={(e) => setCambioLoteForm((prev) => ({ ...prev, fecha: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Lote destino *</Label>
+                  <Select value={cambioLoteForm.loteDestino} onValueChange={(v) => setCambioLoteForm((prev) => ({ ...prev, loteDestino: v }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {lotNames.map((nombre) => (
+                        <SelectItem key={nombre} value={nombre}>{nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {lotNames.length === 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">Cree un lote antes de mover animales.</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <Label>Motivo</Label>
+                <Textarea value={cambioLoteForm.motivo} onChange={(e) => setCambioLoteForm((prev) => ({ ...prev, motivo: e.target.value }))} />
+              </div>
+              <div className="flex justify-between gap-2 pt-2">
+                <Button variant="outline" onClick={() => handleMoveDialogChange(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleMoveAnimals}>Mover animales</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
