@@ -73,13 +73,12 @@ export function ProyeccionesModule() {
     })
   }, [escenarios])
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!newEsc.nombre || !newEsc.pesoInicial || !newEsc.pesoObjetivo || !newEsc.gdpEsperado || !newEsc.costoDiario || !newEsc.precioVentaEsperado) {
       alert("Complete todos los campos.")
       return
     }
-    const esc: Escenario = {
-      id: "",
+    const esc = {
       nombre: newEsc.nombre,
       pesoInicial: Number.parseFloat(newEsc.pesoInicial),
       pesoObjetivo: Number.parseFloat(newEsc.pesoObjetivo),
@@ -87,9 +86,14 @@ export function ProyeccionesModule() {
       costoDiario: Number.parseFloat(newEsc.costoDiario),
       precioVentaEsperado: Number.parseFloat(newEsc.precioVentaEsperado),
     }
-    createEscenario(esc)
-    setShowNew(false)
-    setNewEsc({ nombre: "", pesoInicial: "", pesoObjetivo: "", gdpEsperado: "", costoDiario: "", precioVentaEsperado: "" })
+    try {
+      await createEscenario(esc)
+      setShowNew(false)
+      setNewEsc({ nombre: "", pesoInicial: "", pesoObjetivo: "", gdpEsperado: "", costoDiario: "", precioVentaEsperado: "" })
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo crear el escenario.")
+    }
   }
 
   if (loading) {

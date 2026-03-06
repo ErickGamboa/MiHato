@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 
 import {
   type Animal,
@@ -15,13 +15,30 @@ import {
   type Pesaje,
   type Racion,
   type Venta,
-  cloneInitialData,
+  differenceInDays,
+  fetchDataSnapshot,
+  getCostaRicaNow,
+  isAfterDate,
+  toCostaRicaDate,
+  createAnimalRecord as createAnimalDb,
+  updateAnimalRecord as updateAnimalDb,
+  createPesajeRecord,
+  createInsumoRecord,
+  updateInsumoRecord,
+  createEventoRecord,
+  createMedicamentoRecord,
+  updateMedicamentoRecord,
+  createRacionRecord,
+  updateRacionRecord,
+  isAnimalIdentifierDuplicated,
+  createEscenarioRecord,
+  createVentaRecord,
+  createCostoRecord,
+  createLotMovementRecord,
+  createChangeRecordEntry,
 } from "@/lib/data"
 
-type CreateAnimalInput = Omit<Animal, "historialLotes" | "historialCambios"> & {
-  id?: string
-}
-
+type CreateAnimalInput = Omit<Animal, "historialLotes" | "historialCambios" | "id"> & { id?: string }
 type CreatePesajeInput = Omit<Pesaje, "id"> & { id?: string }
 type CreateInsumoInput = Omit<Insumo, "id"> & { id?: string }
 type CreateEventoInput = Omit<EventoSanitario, "id"> & { id?: string }
@@ -34,175 +51,340 @@ type CreateChangeRecordInput = Omit<ChangeRecord, "id"> & { id?: string }
 
 interface DataStoreValue extends DataSnapshot {
   loading: boolean
-  createAnimal: (animal: CreateAnimalInput) => Animal
-  updateAnimal: (id: string, updates: Partial<Animal>) => void
-  createPesaje: (pesaje: CreatePesajeInput) => Pesaje
-  createInsumo: (insumo: CreateInsumoInput) => Insumo
-  updateInsumo: (id: string, updates: Partial<Insumo>) => void
-  createEvento: (evento: CreateEventoInput) => EventoSanitario
-  createMedicamento: (med: MedicamentoStock) => void
-  updateMedicamento: (id: string, updates: Partial<MedicamentoStock>) => void
-  createRacion: (racion: CreateRacionInput) => Racion
-  createEscenario: (escenario: CreateEscenarioInput) => Escenario
-  createVenta: (venta: CreateVentaInput) => Venta
-  createCosto: (costo: CreateCostoInput) => Costo
-  createLotMovement: (movement: CreateLotMovementInput) => LotMovement
-  createChangeRecord: (record: CreateChangeRecordInput) => ChangeRecord
-  isIdentifierDuplicated: (diio?: string, idSubasta?: string, excludeId?: string) => boolean
+  refresh: () => Promise<void>
+  createAnimal: (animal: CreateAnimalInput) => Promise<Animal>
+  updateAnimal: (id: string, updates: Partial<Animal>) => Promise<Animal>
+  createPesaje: (pesaje: CreatePesajeInput) => Promise<Pesaje>
+  createInsumo: (insumo: CreateInsumoInput) => Promise<Insumo>
+  updateInsumo: (id: string, updates: Partial<Insumo>) => Promise<Insumo>
+  adjustInsumoStock: (id: string, delta: number) => Promise<void>
+  createEvento: (evento: CreateEventoInput) => Promise<EventoSanitario>
+  createMedicamento: (med: MedicamentoStock) => Promise<MedicamentoStock>
+  updateMedicamento: (id: string, updates: Partial<MedicamentoStock>) => Promise<MedicamentoStock>
+  createRacion: (racion: CreateRacionInput) => Promise<Racion>
+  updateRacion: (id: string, updates: Partial<Racion>) => Promise<Racion>
+  toggleRacion: (id: string, activa: boolean) => Promise<Racion>
+  autoConsumeRaciones: (fechaReferencia?: Date) => Promise<void>
+  deactivateExpiredRaciones: (fechaReferencia?: Date) => Promise<void>
+  createEscenario: (escenario: CreateEscenarioInput) => Promise<Escenario>
+  createVenta: (venta: CreateVentaInput) => Promise<Venta>
+  createCosto: (costo: CreateCostoInput) => Promise<Costo>
+  createLotMovement: (movement: CreateLotMovementInput) => Promise<LotMovement>
+  createChangeRecord: (record: CreateChangeRecordInput) => Promise<ChangeRecord>
+  isIdentifierDuplicated: (diio?: string, idSubasta?: string, excludeId?: string) => Promise<boolean>
 }
 
 const DataStoreContext = createContext<DataStoreValue | null>(null)
 
-function nextId(collection: { id: string }[], prefix: string, digits = 3) {
-  const numbers = collection
-    .map((item) => {
-      if (!item.id.startsWith(prefix)) return 0
-      const [, value] = item.id.split("-")
-      return Number.parseInt(value || "0", 10)
-    })
-    .filter((num) => !Number.isNaN(num))
-  const max = numbers.length > 0 ? Math.max(...numbers) : 0
-  return `${prefix}-${String(max + 1).padStart(digits, "0")}`
-}
+const createEmptySnapshot = (): DataSnapshot => ({
+  animales: [],
+  pesajes: [],
+  insumos: [],
+  raciones: [],
+  eventos: [],
+  medicamentos: [],
+  escenarios: [],
+  ventas: [],
+  costos: [],
+  lotMovements: [],
+  changeRecords: [],
+})
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<DataSnapshot>(() => cloneInitialData())
+  const [state, setState] = useState<DataSnapshot>(createEmptySnapshot)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const timeout = setTimeout(() => setLoading(false), 350)
-    return () => clearTimeout(timeout)
+  const loadSnapshot = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true)
+    try {
+      const snapshot = await fetchDataSnapshot()
+      setState(snapshot)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  const createAnimal = (input: CreateAnimalInput): Animal => {
-    const id = input.id ?? nextId(state.animales, "AN")
-    const newAnimal: Animal = {
-      ...input,
-      id,
-      historialCambios: [],
-      historialLotes: [],
-    }
-    setState((prev) => ({ ...prev, animales: [...prev.animales, newAnimal] }))
-    return newAnimal
-  }
+  useEffect(() => {
+    void loadSnapshot(true)
+  }, [loadSnapshot])
 
-  const updateAnimal = (id: string, updates: Partial<Animal>) => {
-    setState((prev) => ({
-      ...prev,
-      animales: prev.animales.map((animal) => (animal.id === id ? { ...animal, ...updates } : animal)),
-    }))
-  }
+  const refresh = useCallback(async () => {
+    await loadSnapshot(false)
+  }, [loadSnapshot])
 
-  const createPesaje = (input: CreatePesajeInput): Pesaje => {
-    const id = input.id ?? nextId(state.pesajes, "P")
-    const pesaje: Pesaje = { ...input, id }
-    setState((prev) => ({ ...prev, pesajes: [...prev.pesajes, pesaje] }))
-    return pesaje
-  }
+  const createAnimal = useCallback(
+    async (input: CreateAnimalInput) => {
+      const record = await createAnimalDb(input)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const createInsumo = (input: CreateInsumoInput): Insumo => {
-    const id = input.id ?? nextId(state.insumos, "INS")
-    const insumo: Insumo = { ...input, id }
-    setState((prev) => ({ ...prev, insumos: [...prev.insumos, insumo] }))
-    return insumo
-  }
+  const updateAnimal = useCallback(
+    async (id: string, updates: Partial<Animal>) => {
+      const record = await updateAnimalDb(id, updates)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const updateInsumo = (id: string, updates: Partial<Insumo>) => {
-    setState((prev) => ({
-      ...prev,
-      insumos: prev.insumos.map((ins) => (ins.id === id ? { ...ins, ...updates } : ins)),
-    }))
-  }
+  const createPesaje = useCallback(
+    async (input: CreatePesajeInput) => {
+      const record = await createPesajeRecord(input)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const createEvento = (input: CreateEventoInput): EventoSanitario => {
-    const id = input.id ?? nextId(state.eventos, "EV")
-    const evento: EventoSanitario = { ...input, id }
-    setState((prev) => ({ ...prev, eventos: [...prev.eventos, evento] }))
-    return evento
-  }
+  const createInsumo = useCallback(
+    async (input: CreateInsumoInput) => {
+      const record = await createInsumoRecord(input)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const createMedicamento = (med: MedicamentoStock) => {
-    setState((prev) => ({ ...prev, medicamentos: [...prev.medicamentos, med] }))
-  }
+  const updateInsumo = useCallback(
+    async (id: string, updates: Partial<Insumo>) => {
+      const record = await updateInsumoRecord(id, updates)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const updateMedicamento = (id: string, updates: Partial<MedicamentoStock>) => {
-    setState((prev) => ({
-      ...prev,
-      medicamentos: prev.medicamentos.map((med) => (med.id === id ? { ...med, ...updates } : med)),
-    }))
-  }
+  const adjustInsumoStock = useCallback(
+    async (id: string, delta: number) => {
+      const insumo = state.insumos.find((i) => i.id === id)
+      if (!insumo) return
+      const nuevoStock = Math.max(0, Math.round((insumo.stock + delta) * 100) / 100)
+      await updateInsumoRecord(id, { stock: nuevoStock })
+      await refresh()
+    },
+    [refresh, state.insumos]
+  )
 
-  const createRacion = (input: CreateRacionInput): Racion => {
-    const id = input.id ?? nextId(state.raciones, "RAC")
-    const racion: Racion = { ...input, id }
-    setState((prev) => ({ ...prev, raciones: [...prev.raciones, racion] }))
-    return racion
-  }
+  const createEvento = useCallback(
+    async (input: CreateEventoInput) => {
+      const record = await createEventoRecord(input)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const createEscenario = (input: CreateEscenarioInput): Escenario => {
-    const id = input.id ?? nextId(state.escenarios, "ESC")
-    const escenario: Escenario = { ...input, id }
-    setState((prev) => ({ ...prev, escenarios: [...prev.escenarios, escenario] }))
-    return escenario
-  }
+  const createMedicamento = useCallback(
+    async (med: MedicamentoStock) => {
+      const record = await createMedicamentoRecord(med)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const createVenta = (input: CreateVentaInput): Venta => {
-    const id = input.id ?? nextId(state.ventas, "VTA")
-    const venta: Venta = { ...input, id }
-    setState((prev) => ({
-      ...prev,
-      ventas: [...prev.ventas, venta],
-      animales: prev.animales.map((animal) =>
-        animal.id === venta.animalId ? { ...animal, estado: "vendido" } : animal
-      ),
-    }))
-    return venta
-  }
+  const updateMedicamento = useCallback(
+    async (id: string, updates: Partial<MedicamentoStock>) => {
+      const record = await updateMedicamentoRecord(id, updates)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const createCosto = (input: CreateCostoInput): Costo => {
-    const id = input.id ?? nextId(state.costos, "CST")
-    const costo: Costo = { ...input, id }
-    setState((prev) => ({ ...prev, costos: [...prev.costos, costo] }))
-    return costo
-  }
+  const createRacion = useCallback(
+    async (input: CreateRacionInput) => {
+      const last = input.fechaInicio ? toCostaRicaDate(input.fechaInicio).toISOString() : getCostaRicaNow().toISOString()
+      const record = await createRacionRecord({
+        ...input,
+        activa: input.activa ?? true,
+        ultimoConsumo: input.ultimoConsumo ?? last,
+        motivoDesactivacion: input.motivoDesactivacion ?? null,
+      })
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const createLotMovement = (input: CreateLotMovementInput): LotMovement => {
-    const id = input.id ?? nextId(state.lotMovements, "LM")
-    const movement: LotMovement = { ...input, id }
-    setState((prev) => ({ ...prev, lotMovements: [...prev.lotMovements, movement] }))
-    return movement
-  }
+  const updateRacion = useCallback(
+    async (id: string, updates: Partial<Racion>) => {
+      const record = await updateRacionRecord(id, updates)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const createChangeRecord = (input: CreateChangeRecordInput): ChangeRecord => {
-    const id = input.id ?? nextId(state.changeRecords, "CHG")
-    const record: ChangeRecord = { ...input, id }
-    setState((prev) => ({ ...prev, changeRecords: [...prev.changeRecords, record] }))
-    return record
-  }
+  const toggleRacion = useCallback(
+    async (id: string, activa: boolean) => {
+      const payload: Partial<Racion> = {
+        activa,
+        motivoDesactivacion: activa ? null : "stock",
+      }
+      if (activa) {
+        payload.ultimoConsumo = getCostaRicaNow().toISOString()
+      }
+      const record = await updateRacionRecord(id, payload)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
 
-  const isIdentifierDuplicated = (diio?: string, idSubasta?: string, excludeId?: string): boolean => {
-    if (!diio && !idSubasta) return false
-    return state.animales.some((animal) => {
-      if (excludeId && animal.id === excludeId) return false
-      if (diio && animal.diio === diio) return true
-      if (idSubasta && animal.idSubasta === idSubasta) return true
-      return false
-    })
-  }
+  const autoConsumeRaciones = useCallback(
+    async (fechaReferencia?: Date) => {
+      const now = fechaReferencia ?? getCostaRicaNow()
+      const animalsPerLot = state.animales
+        .filter((animal) => animal.estado === "activo")
+        .reduce<Record<string, number>>((acc, animal) => {
+          acc[animal.lote] = (acc[animal.lote] || 0) + 1
+          return acc
+        }, {})
+
+      const insumoAdjustments = new Map<string, number>()
+      const racionUpdates: { id: string; updates: Partial<Racion> }[] = []
+
+      for (const racion of state.raciones) {
+        if (!racion.activa) continue
+
+        if (racion.fechaFin) {
+          const fin = toCostaRicaDate(racion.fechaFin)
+          if (isAfterDate(now, fin)) {
+            racionUpdates.push({ id: racion.id, updates: { activa: false, motivoDesactivacion: "fecha_fin" } })
+            continue
+          }
+        }
+
+        const last = racion.ultimoConsumo ? new Date(racion.ultimoConsumo) : toCostaRicaDate(racion.fechaInicio)
+        const pendingDays = differenceInDays(last, now)
+        if (pendingDays < 1) continue
+
+        const animalsCount = animalsPerLot[racion.lote] ?? 0
+        if (animalsCount === 0) {
+          racionUpdates.push({ id: racion.id, updates: { ultimoConsumo: now.toISOString() } })
+          continue
+        }
+
+        const consumos = racion.insumos.map((ri) => ({
+          insumoId: ri.insumoId,
+          total: ri.kgPorAnimalDia * animalsCount * pendingDays,
+        }))
+
+        const hasStock = consumos.every(({ insumoId, total }) => {
+          const insumo = state.insumos.find((i) => i.id === insumoId)
+          return insumo ? insumo.stock >= total : false
+        })
+
+        if (!hasStock) {
+          racionUpdates.push({ id: racion.id, updates: { activa: false, motivoDesactivacion: "stock" } })
+          continue
+        }
+
+        consumos.forEach(({ insumoId, total }) => {
+          insumoAdjustments.set(insumoId, (insumoAdjustments.get(insumoId) ?? 0) - total)
+        })
+        racionUpdates.push({ id: racion.id, updates: { ultimoConsumo: now.toISOString(), motivoDesactivacion: null } })
+      }
+
+      const insumoPromises = Array.from(insumoAdjustments.entries()).map(([insumoId, delta]) => {
+        const insumo = state.insumos.find((i) => i.id === insumoId)
+        if (!insumo) return null
+        const nuevo = Math.max(0, Math.round((insumo.stock + delta) * 100) / 100)
+        return updateInsumoRecord(insumoId, { stock: nuevo })
+      }).filter(Boolean) as Promise<Insumo>[]
+
+      const racionPromises = racionUpdates.map(({ id, updates }) => updateRacionRecord(id, updates))
+
+      if (insumoPromises.length === 0 && racionPromises.length === 0) return
+      await Promise.all([...insumoPromises, ...racionPromises])
+      await refresh()
+    },
+    [refresh, state.animales, state.insumos, state.raciones]
+  )
+
+  const deactivateExpiredRaciones = useCallback(
+    async (fechaReferencia?: Date) => {
+      const now = fechaReferencia ?? getCostaRicaNow()
+      const expired = state.raciones.filter((racion) => racion.fechaFin && isAfterDate(now, toCostaRicaDate(racion.fechaFin)) && racion.activa)
+      if (expired.length === 0) return
+      await Promise.all(expired.map((racion) => updateRacionRecord(racion.id, { activa: false, motivoDesactivacion: "fecha_fin" })))
+      await refresh()
+    },
+    [refresh, state.raciones]
+  )
+
+  const createEscenario = useCallback(
+    async (input: CreateEscenarioInput) => {
+      const record = await createEscenarioRecord(input)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
+
+  const createVenta = useCallback(
+    async (input: CreateVentaInput) => {
+      const record = await createVentaRecord(input)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
+
+  const createCosto = useCallback(
+    async (input: CreateCostoInput) => {
+      const record = await createCostoRecord(input)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
+
+  const createLotMovement = useCallback(
+    async (input: CreateLotMovementInput) => {
+      const record = await createLotMovementRecord(input)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
+
+  const createChangeRecord = useCallback(
+    async (input: CreateChangeRecordInput) => {
+      const record = await createChangeRecordEntry(input)
+      await refresh()
+      return record
+    },
+    [refresh]
+  )
+
+  const isIdentifierDuplicated = useCallback(async (diio?: string, idSubasta?: string, excludeId?: string) => {
+    return isAnimalIdentifierDuplicated(diio, idSubasta, excludeId)
+  }, [])
 
   const value = useMemo<DataStoreValue>(
     () => ({
       ...state,
       loading,
+      refresh,
       createAnimal,
       updateAnimal,
       createPesaje,
       createInsumo,
       updateInsumo,
+      adjustInsumoStock,
       createEvento,
       createMedicamento,
       updateMedicamento,
       createRacion,
+      updateRacion,
+      toggleRacion,
+      autoConsumeRaciones,
+      deactivateExpiredRaciones,
       createEscenario,
       createVenta,
       createCosto,
@@ -210,7 +392,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createChangeRecord,
       isIdentifierDuplicated,
     }),
-    [state, loading]
+    [state, loading, refresh, createAnimal, updateAnimal, createPesaje, createInsumo, updateInsumo, adjustInsumoStock, createEvento, createMedicamento, updateMedicamento, createRacion, updateRacion, toggleRacion, autoConsumeRaciones, deactivateExpiredRaciones, createEscenario, createVenta, createCosto, createLotMovement, createChangeRecord, isIdentifierDuplicated]
   )
 
   return <DataStoreContext.Provider value={value}>{children}</DataStoreContext.Provider>

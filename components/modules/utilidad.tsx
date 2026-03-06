@@ -142,8 +142,7 @@ export function UtilidadModule() {
       return
     }
 
-    const v: Venta = {
-      id: "",
+    const v = {
       animalId: newVenta.animalId,
       fechaVenta: newVenta.fechaVenta,
       canalVenta: newVenta.canalVenta,
@@ -152,9 +151,14 @@ export function UtilidadModule() {
       costosSalida: Number.parseFloat(newVenta.costosSalida) || 0,
       merma: Number.parseFloat(newVenta.merma) || 0,
     }
-    createVenta(v)
-    setShowNewVenta(false)
-    setNewVenta({ animalId: "", fechaVenta: new Date().toISOString().split("T")[0], canalVenta: "", pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0" })
+    try {
+      await createVenta(v)
+      setShowNewVenta(false)
+      setNewVenta({ animalId: "", fechaVenta: new Date().toISOString().split("T")[0], canalVenta: "", pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0" })
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo registrar la venta.")
+    }
   }
 
   if (loading) {

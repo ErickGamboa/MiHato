@@ -120,14 +120,19 @@ export function PesajesModule() {
       alert("Complete todos los campos obligatorios.")
       return
     }
-    const newP: Pesaje = {
-      id: `P-${String(pesajes.length + 1).padStart(3, "0")}`,
+    const newP = {
       animalId: newForm.animalId,
       fecha: newForm.fecha,
       peso: Number.parseFloat(newForm.peso),
       suplementacion: newForm.suplementacion || undefined,
     }
-    createPesaje(newP)
+    try {
+      await createPesaje(newP)
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo registrar el pesaje.")
+      return
+    }
     setShowNewDialog(false)
     setNewForm({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", suplementacion: "" })
   }

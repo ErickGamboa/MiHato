@@ -99,7 +99,8 @@ export function InventarioModule() {
     }
 
     // Validación de duplicados en Supabase
-    if (isIdentifierDuplicated(newForm.diio || undefined, newForm.idSubasta || undefined)) {
+    const duplicated = await isIdentifierDuplicated(newForm.diio || undefined, newForm.idSubasta || undefined)
+    if (duplicated) {
       alert("DIIO o ID de subasta duplicado. Este identificador ya existe en el sistema.")
       return
     }
@@ -111,8 +112,7 @@ export function InventarioModule() {
     const precioCompra = precioPorKg * peso
     const precioTotal = precioCompra + transporte + comision
 
-    const newAnimal: Animal = {
-      id: `AN-${String(animales.length + 1).padStart(3, "0")}`,
+    const newAnimal = {
       diio: newForm.diio || undefined,
       idSubasta: newForm.idSubasta || undefined,
       idFinca: newForm.idFinca || undefined,
@@ -129,12 +129,16 @@ export function InventarioModule() {
       costoTransporte: transporte,
       comision,
       precioTotal,
-      estado: "activo",
-      historialLotes: [],
-      historialCambios: [],
-    }
+      estado: "activo" as Animal["estado"],
+    } satisfies Omit<Animal, "historialLotes" | "historialCambios" | "id">
 
-    createAnimal(newAnimal)
+    try {
+      await createAnimal(newAnimal)
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo crear el animal. Intente nuevamente.")
+      return
+    }
     setShowNewDialog(false)
     setNewForm({
       diio: "", idSubasta: "", idFinca: "", fierroOrigen: "",

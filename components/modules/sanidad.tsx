@@ -90,7 +90,7 @@ export function SanidadModule() {
     return al
   }, [eventos, medicamentos, retirosActivos])
 
-  const handleCreateEvento = () => {
+  const handleCreateEvento = async () => {
     if (!newEvento.fecha || !newEvento.producto || !newEvento.dosis) {
       alert("Los campos fecha, producto y dosis son obligatorios.")
       return
@@ -109,8 +109,7 @@ export function SanidadModule() {
       ? new Date(new Date(newEvento.fecha).getTime() + diasRetiro * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
       : undefined
 
-    const ev: EventoSanitario = {
-      id: `EV-${String(eventos.length + 1).padStart(3, "0")}`,
+    const ev = {
       animalId: newEvento.aplicarA === "animal" ? newEvento.animalId : undefined,
       lote: newEvento.aplicarA === "lote" ? newEvento.lote : undefined,
       fecha: newEvento.fecha,
@@ -123,8 +122,13 @@ export function SanidadModule() {
       diasRetiro,
       fechaFinRetiro,
     }
-    createEvento(ev)
-    setShowNewEvento(false)
+    try {
+      await createEvento(ev)
+      setShowNewEvento(false)
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo registrar el evento.")
+    }
   }
 
   // costos sanitarios
