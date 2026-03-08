@@ -1,30 +1,23 @@
-"use client"
+import { cookies } from "next/headers"
+import { ClientPage } from "./client-page"
+import type { ModuleKey } from "@/components/app-shell"
 
-import { useState } from "react"
-import { AppShell, type ModuleKey } from "@/components/app-shell"
-import { DashboardModule } from "@/components/modules/dashboard"
-import { InventarioModule } from "@/components/modules/inventario"
-import { PesajesModule } from "@/components/modules/pesajes"
-import { SuplementacionModule } from "@/components/modules/suplementacion"
-import { SanidadModule } from "@/components/modules/sanidad"
-import { ProyeccionesModule } from "@/components/modules/proyecciones"
-import { UtilidadModule } from "@/components/modules/utilidad"
-import { DataProvider } from "@/hooks/use-data-store"
+const MODULE_KEYS: ModuleKey[] = [
+  "dashboard",
+  "inventario",
+  "pesajes",
+  "suplementacion",
+  "sanidad",
+  "proyecciones",
+  "utilidad",
+]
 
-export default function Page() {
-  const [activeModule, setActiveModule] = useState<ModuleKey>("dashboard")
+export default async function Page() {
+  const cookieStore = await cookies()
+  const stored = cookieStore.get("mihato-active-module")?.value
+  const initialModule: ModuleKey = stored && MODULE_KEYS.includes(stored as ModuleKey)
+    ? (stored as ModuleKey)
+    : "dashboard"
 
-  return (
-    <DataProvider>
-      <AppShell activeModule={activeModule} onModuleChange={setActiveModule}>
-        {activeModule === "dashboard" && <DashboardModule />}
-        {activeModule === "inventario" && <InventarioModule />}
-        {activeModule === "pesajes" && <PesajesModule />}
-        {activeModule === "suplementacion" && <SuplementacionModule />}
-        {activeModule === "sanidad" && <SanidadModule />}
-        {activeModule === "proyecciones" && <ProyeccionesModule />}
-        {activeModule === "utilidad" && <UtilidadModule />}
-      </AppShell>
-    </DataProvider>
-  )
+  return <ClientPage initialModule={initialModule} />
 }
