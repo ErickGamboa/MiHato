@@ -196,7 +196,7 @@ export function DashboardModule() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
               {alertas.countEstancados > 0 && (
                 <div className="flex items-center gap-2 rounded-lg bg-amber-100 p-3 text-amber-800">
                   <ScaleIcon className="h-5 w-5" />

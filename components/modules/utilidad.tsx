@@ -215,7 +215,7 @@ export function UtilidadModule() {
               Registrar Venta
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Registrar Venta</DialogTitle>
             </DialogHeader>
@@ -236,7 +236,7 @@ export function UtilidadModule() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label>Fecha Venta *</Label>
                   <Input type="date" value={newVenta.fechaVenta} onChange={(e) => setNewVenta({ ...newVenta, fechaVenta: e.target.value })} />
@@ -246,7 +246,7 @@ export function UtilidadModule() {
                   <Input value={newVenta.canalVenta} onChange={(e) => setNewVenta({ ...newVenta, canalVenta: e.target.value })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label>Peso Venta (kg) *</Label>
                   <Input type="number" value={newVenta.pesoVenta} onChange={(e) => setNewVenta({ ...newVenta, pesoVenta: e.target.value })} />
@@ -256,7 +256,7 @@ export function UtilidadModule() {
                   <Input type="number" value={newVenta.precioPorKg} onChange={(e) => setNewVenta({ ...newVenta, precioPorKg: e.target.value })} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label>Costos de Salida</Label>
                   <Input type="number" value={newVenta.costosSalida} onChange={(e) => setNewVenta({ ...newVenta, costosSalida: e.target.value })} />
@@ -415,7 +415,7 @@ export function UtilidadModule() {
               </ResponsiveContainer>
             </div>
             <div className="mt-4 rounded-lg bg-muted p-4">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 text-sm">
+              <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <p className="text-muted-foreground">Precio equilibrio</p>
                   <p className="font-mono font-bold text-foreground">{formatCurrency(ventaCalcs[0].precioEquilibrio)}/kg</p>

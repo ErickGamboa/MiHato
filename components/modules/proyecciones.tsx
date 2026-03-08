@@ -118,25 +118,25 @@ export function ProyeccionesModule() {
             <DialogHeader>
               <DialogTitle>Crear Escenario</DialogTitle>
             </DialogHeader>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label>Nombre *</Label>
-                <Input value={newEsc.nombre} onChange={(e) => setNewEsc({ ...newEsc, nombre: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label>Peso Inicial (kg) *</Label>
-                  <Input type="number" value={newEsc.pesoInicial} onChange={(e) => setNewEsc({ ...newEsc, pesoInicial: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Peso Objetivo (kg) *</Label>
-                  <Input type="number" value={newEsc.pesoObjetivo} onChange={(e) => setNewEsc({ ...newEsc, pesoObjetivo: e.target.value })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label>GDP esperado *</Label>
-                  <Input type="number" step="0.1" value={newEsc.gdpEsperado} onChange={(e) => setNewEsc({ ...newEsc, gdpEsperado: e.target.value })} />
+             <div className="flex flex-col gap-4">
+               <div className="flex flex-col gap-2">
+                 <Label>Nombre *</Label>
+                 <Input value={newEsc.nombre} onChange={(e) => setNewEsc({ ...newEsc, nombre: e.target.value })} />
+               </div>
+               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                 <div className="flex flex-col gap-2">
+                   <Label>Peso Inicial (kg) *</Label>
+                   <Input type="number" value={newEsc.pesoInicial} onChange={(e) => setNewEsc({ ...newEsc, pesoInicial: e.target.value })} />
+                 </div>
+                 <div className="flex flex-col gap-2">
+                   <Label>Peso Objetivo (kg) *</Label>
+                   <Input type="number" value={newEsc.pesoObjetivo} onChange={(e) => setNewEsc({ ...newEsc, pesoObjetivo: e.target.value })} />
+                 </div>
+               </div>
+               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                 <div className="flex flex-col gap-2">
+                   <Label>GDP esperado *</Label>
+                   <Input type="number" step="0.1" value={newEsc.gdpEsperado} onChange={(e) => setNewEsc({ ...newEsc, gdpEsperado: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label>Costo diario *</Label>
@@ -174,7 +174,7 @@ export function ProyeccionesModule() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="rounded-lg bg-muted p-3">
                   <p className="text-xs text-muted-foreground">Días a objetivo</p>
                   <p className="text-xl font-bold text-foreground">{esc.diasAObjetivo}</p>

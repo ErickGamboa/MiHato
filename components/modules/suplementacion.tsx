@@ -468,7 +468,7 @@ export function SuplementacionModule() {
                   </div>
                   <Switch checked={racionForm.activa} onCheckedChange={(v) => setRacionForm({ ...racionForm, activa: v })} />
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <Label>Ingredientes</Label>
                   <Button variant="outline" size="sm" onClick={handleAddRacionRow}>
                     Agregar insumo
@@ -476,7 +476,7 @@ export function SuplementacionModule() {
                 </div>
                 <div className="flex flex-col gap-3">
                   {racionForm.insumos.map((ri, idx) => (
-                    <div key={idx} className="grid grid-cols-1 gap-3 rounded-lg border p-3 sm:grid-cols-2">
+                    <div key={idx} className="grid grid-cols-1 gap-3 rounded-lg border p-3 sm:grid-cols-2 md:grid-cols-3">
                       <div className="flex flex-col gap-2">
                         <Label className="text-xs">Insumo *</Label>
                         <Select
@@ -518,7 +518,7 @@ export function SuplementacionModule() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="justify-self-end text-muted-foreground"
+                          className="sm:col-span-2 md:col-span-1 md:justify-self-end text-muted-foreground"
                           onClick={() => handleRemoveRacionRow(idx)}
                         >
                           Quitar
@@ -582,7 +582,7 @@ export function SuplementacionModule() {
       </Dialog>
 
       <Tabs defaultValue="raciones" className="w-full">
-        <TabsList>
+        <TabsList className="flex w-full flex-wrap gap-2">
           <TabsTrigger value="raciones">Raciones</TabsTrigger>
           <TabsTrigger value="insumos">Catálogo de Insumos</TabsTrigger>
           <TabsTrigger value="inventario">Inventario</TabsTrigger>
@@ -645,26 +645,28 @@ export function SuplementacionModule() {
                 </CardHeader>
                 <CardContent>
                   {/* Insumos de la ración */}
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Insumo</TableHead>
-                        <TableHead className="text-right">kg/animal/día</TableHead>
-                        <TableHead className="text-right">Costo/kg</TableHead>
-                        <TableHead className="text-right">Costo/día/animal</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {detalleInsumos.map((di) => (
-                        <TableRow key={di.insumoId}>
-                          <TableCell className="font-medium">{di.insumo?.nombre || di.insumoId}</TableCell>
-                          <TableCell className="text-right font-mono">{di.kgPorAnimalDia}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(di.insumo?.costoPorKg || 0)}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(di.costoDia)}</TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Insumo</TableHead>
+                          <TableHead className="text-right">kg/animal/día</TableHead>
+                          <TableHead className="text-right">Costo/kg</TableHead>
+                          <TableHead className="text-right">Costo/día/animal</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {detalleInsumos.map((di) => (
+                          <TableRow key={di.insumoId}>
+                            <TableCell className="font-medium">{di.insumo?.nombre || di.insumoId}</TableCell>
+                            <TableCell className="text-right font-mono">{di.kgPorAnimalDia}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(di.insumo?.costoPorKg || 0)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(di.costoDia)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
 
                   {/* Summary */}
                   <div className="mt-4 grid grid-cols-1 gap-3 rounded-lg bg-muted p-4 sm:grid-cols-3">

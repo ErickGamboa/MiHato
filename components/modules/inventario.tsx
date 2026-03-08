@@ -618,8 +618,8 @@ export function InventarioModule() {
       {/* Search + Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative w-full lg:max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar por DIIO, ID, fierro, apodo, lote..."
@@ -628,9 +628,9 @@ export function InventarioModule() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Select value={filterGenero} onValueChange={setFilterGenero}>
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-full min-w-[140px] sm:w-32">
                   <SelectValue placeholder="Género" />
                 </SelectTrigger>
                 <SelectContent>
@@ -640,7 +640,7 @@ export function InventarioModule() {
                 </SelectContent>
               </Select>
               <Select value={filterLote} onValueChange={setFilterLote}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-full min-w-[140px] sm:w-32">
                   <SelectValue placeholder="Lote" />
                 </SelectTrigger>
                 <SelectContent>
@@ -651,7 +651,7 @@ export function InventarioModule() {
                 </SelectContent>
               </Select>
               <Select value={filterEstado} onValueChange={setFilterEstado}>
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-full min-w-[140px] sm:w-32">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -667,7 +667,7 @@ export function InventarioModule() {
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-3">
         <p className="text-sm text-muted-foreground">
           {selectionCount > 0 ? `${selectionCount} animales seleccionados` : "Selecciona animales para moverlos de lote"}
         </p>
@@ -812,7 +812,7 @@ export function InventarioModule() {
                           {animal.estado}
                         </Badge>
                       </TableCell>
-                      <TableCell className="flex justify-end gap-1">
+                      <TableCell className="flex flex-wrap justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1065,7 +1065,7 @@ function AnimalFicha({
 
       {/* Tabs */}
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="w-full justify-start">
+        <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="pesajes">Pesajes</TabsTrigger>
           <TabsTrigger value="sanidad">Sanidad</TabsTrigger>

@@ -48,8 +48,13 @@
   * {
     @apply border-border;
   }
+  html {
+    min-height: 100%;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply min-h-screen bg-background text-foreground;
+    overflow-x: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

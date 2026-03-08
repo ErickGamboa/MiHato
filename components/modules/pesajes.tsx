@@ -248,9 +248,9 @@ export function PesajesModule() {
           <h3 className="text-lg font-semibold text-foreground">Pesajes y Desempeño</h3>
           <p className="text-sm text-muted-foreground">Control de ganancia de peso por animal</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Select value={filterLote} onValueChange={setFilterLote}>
-            <SelectTrigger className="w-[130px]">
+            <SelectTrigger className="w-full min-w-[150px] sm:w-40">
               <SelectValue placeholder="Lote" />
             </SelectTrigger>
             <SelectContent>
@@ -436,7 +436,7 @@ export function PesajesModule() {
                     </TableHead>
                     <TableHead>
                       <Select value={columnFilters.trend} onValueChange={(v) => setColumnFilters((prev) => ({ ...prev, trend: v }))}>
-                        <SelectTrigger className="w-[130px]">
+                        <SelectTrigger className="w-full min-w-[150px] sm:w-36">
                           <SelectValue placeholder="Tendencia" />
                         </SelectTrigger>
                         <SelectContent>

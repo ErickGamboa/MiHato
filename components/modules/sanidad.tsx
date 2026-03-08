@@ -237,7 +237,7 @@ export function SanidadModule() {
                   </Select>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label>Fecha *</Label>
                   <Input type="date" value={newEvento.fecha} onChange={(e) => setNewEvento({ ...newEvento, fecha: e.target.value })} />
@@ -258,7 +258,7 @@ export function SanidadModule() {
                 <Label>Producto *</Label>
                 <Input value={newEvento.producto} onChange={(e) => setNewEvento({ ...newEvento, producto: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label>Dosis *</Label>
                   <Input value={newEvento.dosis} onChange={(e) => setNewEvento({ ...newEvento, dosis: e.target.value })} />
@@ -318,7 +318,7 @@ export function SanidadModule() {
       )}
 
       <Tabs defaultValue="eventos" className="w-full">
-        <TabsList>
+        <TabsList className="flex w-full flex-wrap gap-2">
           <TabsTrigger value="eventos">Eventos Sanitarios</TabsTrigger>
           <TabsTrigger value="medicamentos">Stock Medicamentos</TabsTrigger>
         </TabsList>
