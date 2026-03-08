@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -83,7 +83,6 @@ export function InventarioModule() {
   const [editingLotId, setEditingLotId] = useState<string | null>(null)
   const [columnFilters, setColumnFilters] = useState({
     id: "",
-    diio: "",
     apodo: "",
     raza: "",
     genero: "",
@@ -99,7 +98,7 @@ export function InventarioModule() {
     diio: "", idSubasta: "", idFinca: "", fierroOrigen: "",
     genero: "macho" as Gender, raza: "", fechaIngreso: new Date().toISOString().split("T")[0],
     procedencia: "finca" as "finca" | "subasta", pesoIngreso: "",
-    apodo: "", lote: "L-01", precioPorKg: "", costoTransporte: "0", comision: "0",
+    apodo: "", lote: "", precioPorKg: "", costoTransporte: "0", comision: "0",
   })
 
   const lotCatalog = useMemo<Lot[]>(() => {
@@ -110,6 +109,7 @@ export function InventarioModule() {
   }, [lotDefinitions, animales])
 
   const lotNames = useMemo(() => [...new Set(lotCatalog.map((lot) => lot.nombre))].sort(), [lotCatalog])
+  const hasAvailableLots = lotNames.length > 0
 
   const lotesWithCounts = useMemo(() => {
     return lotCatalog.map((lot) => ({
@@ -117,6 +117,19 @@ export function InventarioModule() {
       animalesCount: animales.filter((a) => a.lote === lot.nombre).length,
     }))
   }, [lotCatalog, animales])
+
+  useEffect(() => {
+    if (!hasAvailableLots) {
+      setNewForm((prev) => ({ ...prev, lote: "" }))
+      return
+    }
+    setNewForm((prev) => {
+      if (!prev.lote || !lotNames.includes(prev.lote)) {
+        return { ...prev, lote: lotNames[0] }
+      }
+      return prev
+    })
+  }, [hasAvailableLots, lotNames])
 
   const filtered = useMemo(() => {
     return animales.filter((a) => {
@@ -147,8 +160,7 @@ export function InventarioModule() {
       const matches = (value: string | undefined, filter: string) =>
         !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
 
-      const idMatch = matches(animal.id, columnFilters.id)
-      const diioMatch = matches(animal.diio, columnFilters.diio)
+      const idMatch = matches(animal.diio || animal.id, columnFilters.id)
       const apodoMatch = matches(animal.apodo, columnFilters.apodo)
       const razaMatch = matches(animal.raza, columnFilters.raza)
       const generoMatch = matches(animal.genero, columnFilters.genero)
@@ -160,7 +172,6 @@ export function InventarioModule() {
 
       return (
         idMatch &&
-        diioMatch &&
         apodoMatch &&
         razaMatch &&
         generoMatch &&
@@ -329,14 +340,23 @@ export function InventarioModule() {
   }
 
   const handleCreateAnimal = async () => {
+    const diio = newForm.diio.trim().toUpperCase()
+    if (!diio) {
+      alert("El DIIO es obligatorio y funciona como identificador principal del animal.")
+      return
+    }
+    if (!hasAvailableLots || !newForm.lote) {
+      alert("Debe crear y seleccionar un lote antes de registrar un animal.")
+      return
+    }
     // Validación de campos obligatorios
-    if (!newForm.genero || !newForm.fechaIngreso || !newForm.pesoIngreso || !newForm.lote || !newForm.precioPorKg) {
-      alert("Complete los campos obligatorios: género, fecha ingreso, peso ingreso, lote, precio/kg.")
+    if (!newForm.genero || !newForm.fechaIngreso || !newForm.pesoIngreso || !newForm.precioPorKg) {
+      alert("Complete los campos obligatorios: género, fecha ingreso, peso ingreso y precio/kg.")
       return
     }
 
     // Validación de duplicados en Supabase
-    const duplicated = await isIdentifierDuplicated(newForm.diio || undefined, newForm.idSubasta || undefined)
+    const duplicated = await isIdentifierDuplicated(diio, newForm.idSubasta || undefined)
     if (duplicated) {
       alert("DIIO o ID de subasta duplicado. Este identificador ya existe en el sistema.")
       return
@@ -350,7 +370,7 @@ export function InventarioModule() {
     const precioTotal = precioCompra + transporte + comision
 
     const newAnimal = {
-      diio: newForm.diio || undefined,
+      diio,
       idSubasta: newForm.idSubasta || undefined,
       idFinca: newForm.idFinca || undefined,
       fierroOrigen: newForm.fierroOrigen || undefined,
@@ -380,7 +400,7 @@ export function InventarioModule() {
     setNewForm({
       diio: "", idSubasta: "", idFinca: "", fierroOrigen: "",
       genero: "macho", raza: "", fechaIngreso: new Date().toISOString().split("T")[0],
-      procedencia: "finca", pesoIngreso: "", apodo: "", lote: "L-01",
+      procedencia: "finca", pesoIngreso: "", apodo: "", lote: lotNames[0] ?? "",
       precioPorKg: "", costoTransporte: "0", comision: "0",
     })
   }
@@ -429,11 +449,11 @@ export function InventarioModule() {
             </DialogHeader>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label>DIIO</Label>
+                <Label>DIIO (ID) *</Label>
                 <Input
                   placeholder="CL-XXXXXXXX"
                   value={newForm.diio}
-                  onChange={(e) => setNewForm({ ...newForm, diio: e.target.value })}
+                  onChange={(e) => setNewForm({ ...newForm, diio: e.target.value.toUpperCase() })}
                 />
               </div>
               <div className="flex flex-col gap-2">
@@ -519,13 +539,16 @@ export function InventarioModule() {
                   value={newForm.lote}
                   onValueChange={(v) => setNewForm({ ...newForm, lote: v })}
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger disabled={!hasAvailableLots}><SelectValue placeholder={hasAvailableLots ? undefined : "Cree un lote"} /></SelectTrigger>
                   <SelectContent>
                     {lotNames.map((loteNombre) => (
                       <SelectItem key={loteNombre} value={loteNombre}>{loteNombre}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {!hasAvailableLots && (
+                  <p className="text-xs text-destructive">Debes crear un lote antes de registrar animales.</p>
+                )}
                 <Button type="button" variant="link" className="justify-start p-0 text-left text-sm font-normal" onClick={() => setShowManageLoteDialog(true)}>
                   Gestionar lotes
                 </Button>
@@ -585,7 +608,7 @@ export function InventarioModule() {
             </div>
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="outline" onClick={() => setShowNewDialog(false)}>Cancelar</Button>
-              <Button onClick={handleCreateAnimal}>Registrar Animal</Button>
+              <Button onClick={handleCreateAnimal} disabled={!hasAvailableLots}>Registrar Animal</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -674,8 +697,7 @@ export function InventarioModule() {
                       onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
                     />
                   </TableHead>
-                  <TableHead>ID</TableHead>
-                  <TableHead>DIIO</TableHead>
+                  <TableHead>DIIO / ID</TableHead>
                   <TableHead>Apodo</TableHead>
                   <TableHead>Raza</TableHead>
                   <TableHead>Género</TableHead>
@@ -687,19 +709,12 @@ export function InventarioModule() {
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
                 <TableRow>
-                  <TableHead />
+                  <TableHead className="w-10" />
                   <TableHead>
                     <Input
-                      placeholder="ID"
+                      placeholder="DIIO / ID"
                       value={columnFilters.id}
                       onChange={(e) => setColumnFilters((prev) => ({ ...prev, id: e.target.value }))}
-                    />
-                  </TableHead>
-                  <TableHead>
-                    <Input
-                      placeholder="DIIO"
-                      value={columnFilters.diio}
-                      onChange={(e) => setColumnFilters((prev) => ({ ...prev, diio: e.target.value }))}
                     />
                   </TableHead>
                   <TableHead>
@@ -778,8 +793,7 @@ export function InventarioModule() {
                           onCheckedChange={(checked) => toggleSelectAnimal(animal.id, Boolean(checked))}
                         />
                       </TableCell>
-                      <TableCell className="font-mono text-xs font-medium">{animal.id}</TableCell>
-                      <TableCell className="text-xs">{animal.diio || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs font-medium">{animal.diio || animal.id}</TableCell>
                       <TableCell className="font-medium">{animal.apodo || "—"}</TableCell>
                       <TableCell>{animal.raza}</TableCell>
                       <TableCell className="capitalize">{animal.genero}</TableCell>
@@ -990,6 +1004,9 @@ function AnimalFicha({
   const diasEnFinca = Math.round(
     (new Date().getTime() - new Date(animal.fechaIngreso).getTime()) / (1000 * 60 * 60 * 24)
   )
+  const lotHistory = [...animal.historialLotes].sort(
+    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+  )
 
   return (
     <div className="flex flex-col gap-4">
@@ -1056,24 +1073,64 @@ function AnimalFicha({
         </TabsList>
 
         <TabsContent value="general" className="mt-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <InfoField label="ID" value={animal.id} />
-                <InfoField label="DIIO" value={animal.diio || "—"} />
-                <InfoField label="ID Subasta" value={animal.idSubasta || "—"} />
-                <InfoField label="ID Finca" value={animal.idFinca || "—"} />
-                <InfoField label="Fierro Origen" value={animal.fierroOrigen || "—"} />
-                <InfoField label="Género" value={animal.genero} />
-                <InfoField label="Raza" value={animal.raza} />
-                <InfoField label="Procedencia" value={animal.procedencia} />
-                <InfoField label="Fecha Ingreso" value={animal.fechaIngreso} />
-                <InfoField label="Peso Ingreso" value={`${animal.pesoIngreso} kg`} />
-                <InfoField label="Lote" value={animal.lote} />
-                <InfoField label="Apodo" value={animal.apodo || "—"} />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <InfoField label="DIIO (ID)" value={animal.diio || animal.id} />
+                  <InfoField label="ID interno" value={animal.id} />
+                  <InfoField label="ID Subasta" value={animal.idSubasta || "—"} />
+                  <InfoField label="ID Finca" value={animal.idFinca || "—"} />
+                  <InfoField label="Fierro Origen" value={animal.fierroOrigen || "—"} />
+                  <InfoField label="Género" value={animal.genero} />
+                  <InfoField label="Raza" value={animal.raza} />
+                  <InfoField label="Procedencia" value={animal.procedencia} />
+                  <InfoField label="Fecha Ingreso" value={animal.fechaIngreso} />
+                  <InfoField label="Peso Ingreso" value={`${animal.pesoIngreso} kg`} />
+                  <InfoField label="Lote" value={animal.lote} />
+                  <InfoField label="Apodo" value={animal.apodo || "—"} />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Cambios de lote</CardTitle>
+                <p className="text-sm text-muted-foreground">Historial de movimientos para este animal.</p>
+              </CardHeader>
+              <CardContent className="p-0">
+                {lotHistory.length === 0 ? (
+                  <p className="p-6 text-sm text-muted-foreground">Sin cambios de lote registrados.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Fecha</TableHead>
+                          <TableHead>Origen</TableHead>
+                          <TableHead>Destino</TableHead>
+                          <TableHead>Motivo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lotHistory.map((movimiento) => (
+                          <TableRow key={movimiento.id}>
+                            <TableCell className="whitespace-nowrap">{movimiento.fecha}</TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              <Badge variant="outline">{movimiento.loteOrigen}</Badge>
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              <Badge variant="secondary">{movimiento.loteDestino}</Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{movimiento.motivo}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="pesajes" className="mt-4">
