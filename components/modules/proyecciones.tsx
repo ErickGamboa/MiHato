@@ -20,9 +20,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, TrendingUp, Target, Calculator } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Plus, Target, Calculator } from "lucide-react"
 import { type Escenario, formatCurrency, formatNumber } from "@/lib/data"
 import { useDataStore } from "@/hooks/use-data-store"
+
+const GDP_STEPS = [0.6, 0.8, 1.0, 1.2, 1.4]
+const COST_STEPS = [2000, 2500, 3000, 3500, 4000]
 
 export function ProyeccionesModule() {
   const { escenarios, loading, createEscenario } = useDataStore()
@@ -52,24 +56,20 @@ export function ProyeccionesModule() {
     })
   }, [escenarios])
 
-  // Sensitivity matrix for first scenario
-  const sensitivityData = useMemo(() => {
-    if (escenarios.length === 0) return []
-    const base = escenarios[0]
-    const gdpValues = [0.6, 0.8, 1.0, 1.2, 1.4]
-    const costValues = [2000, 2500, 3000, 3500, 4000]
-
-    return gdpValues.map((gdp) => {
-      const row: Record<string, number | string> = { gdp: `${gdp} kg/d` }
-      for (const costo of costValues) {
-        const kgNec = base.pesoObjetivo - base.pesoInicial
-        const dias = Math.ceil(kgNec / gdp)
-        const costoTotal = dias * costo
-        const ingreso = base.pesoObjetivo * base.precioVentaEsperado
-        const utilidad = ingreso - costoTotal - base.pesoInicial * 2500
-        row[`₡${costo}`] = utilidad
-      }
-      return row
+  const sensitivityMatrices = useMemo(() => {
+    return escenarios.map((esc) => {
+      const kgNec = esc.pesoObjetivo - esc.pesoInicial
+      const rows = GDP_STEPS.map((gdp) => {
+        const dias = Math.max(0, Math.ceil(kgNec / gdp))
+        const ingreso = esc.pesoObjetivo * esc.precioVentaEsperado
+        const values = COST_STEPS.map((costo) => {
+          const costoTotal = dias * costo
+          const utilidad = ingreso - costoTotal - esc.pesoInicial * 2500
+          return { costo, utilidad }
+        })
+        return { gdpLabel: `${gdp} kg/d`, values }
+      })
+      return { escenario: esc, rows }
     })
   }, [escenarios])
 
@@ -210,49 +210,66 @@ export function ProyeccionesModule() {
       </div>
 
       {/* Sensitivity Matrix */}
-      {sensitivityData.length > 0 && (
+      {sensitivityMatrices.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
               <Calculator className="h-5 w-5 text-muted-foreground" />
               <div>
                 <CardTitle className="text-base">Matriz de Sensibilidad</CardTitle>
-                <p className="text-xs text-muted-foreground">GDP vs Costo diario - Utilidad neta estimada ({escenarios[0]?.nombre})</p>
+                <p className="text-xs text-muted-foreground">Evalúa cada escenario variando GDP y costo diario</p>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="font-medium">GDP / Costo día</TableHead>
-                    <TableHead className="text-right">₡2,000</TableHead>
-                    <TableHead className="text-right">₡2,500</TableHead>
-                    <TableHead className="text-right">₡3,000</TableHead>
-                    <TableHead className="text-right">₡3,500</TableHead>
-                    <TableHead className="text-right">₡4,000</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sensitivityData.map((row) => (
-                    <TableRow key={row.gdp as string}>
-                      <TableCell className="font-medium">{row.gdp as string}</TableCell>
-                      {["₡2000", "₡2500", "₡3000", "₡3500", "₡4000"].map((key) => {
-                        const val = row[key] as number
-                        return (
-                          <TableCell key={key} className="text-right">
-                            <span className={`font-mono text-sm ${val >= 0 ? "text-primary" : "text-destructive"}`}>
-                              {formatCurrency(val)}
-                            </span>
-                          </TableCell>
-                        )
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          <CardContent>
+            <Tabs defaultValue={sensitivityMatrices[0]?.escenario.id} className="w-full">
+              <TabsList className="w-full flex-wrap justify-start gap-2">
+                {sensitivityMatrices.map(({ escenario }) => (
+                  <TabsTrigger key={escenario.id} value={escenario.id} className="text-xs sm:text-sm">
+                    {escenario.nombre}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {sensitivityMatrices.map(({ escenario, rows }) => (
+                <TabsContent key={escenario.id} value={escenario.id} className="mt-4">
+                  <div className="rounded-lg border">
+                    <div className="border-b px-4 py-3 text-sm text-muted-foreground">
+                      GDP vs costo diario — {escenario.nombre}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="font-medium">GDP / Costo día</TableHead>
+                            {COST_STEPS.map((costo) => (
+                              <TableHead key={costo} className="text-right">
+                                ₡{costo.toLocaleString("es-CR")}
+                              </TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map((row) => (
+                            <TableRow key={row.gdpLabel}>
+                              <TableCell className="font-medium">{row.gdpLabel}</TableCell>
+                              {row.values.map(({ costo, utilidad }) => (
+                                <TableCell key={`${row.gdpLabel}-${costo}`} className="text-right">
+                                  <span
+                                    className={`font-mono text-sm ${utilidad >= 0 ? "text-primary" : "text-destructive"}`}
+                                  >
+                                    {formatCurrency(utilidad)}
+                                  </span>
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
           </CardContent>
         </Card>
       )}
