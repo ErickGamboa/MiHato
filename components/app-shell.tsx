@@ -67,7 +67,7 @@ export function AppShell({ activeModule, onModuleChange, children }: AppShellPro
             <Beef className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-sidebar-foreground">GanaPro</h1>
+            <h1 className="text-lg font-bold tracking-tight text-sidebar-foreground">MiHato</h1>
           </div>
           <Button
             variant="ghost"
@@ -109,7 +109,7 @@ export function AppShell({ activeModule, onModuleChange, children }: AppShellPro
         </nav>
 
         <div className="border-t border-sidebar-border px-4 py-4">
-          <p className="text-xs text-sidebar-foreground/50">GanaPro v1.0</p>
+          <p className="text-xs text-sidebar-foreground/50">MiHato v1.0</p>
         </div>
       </aside>
 

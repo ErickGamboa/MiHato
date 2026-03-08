@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
 
 export const metadata: Metadata = {
-  title: "GanaPro - Sistema de Gestión Ganadera",
+  title: "MiHato",
   description: "Sistema integral de gestión ganadera: inventario, pesajes, sanidad, suplementación y rentabilidad.",
 }
 
