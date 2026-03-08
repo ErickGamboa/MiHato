@@ -42,6 +42,7 @@ import {
   Bar,
 } from "recharts"
 import { useDataStore } from "@/hooks/use-data-store"
+import { getAnimalDisplayLabel, getAnimalSecondaryLabel } from "@/lib/utils"
 
 const SIN_RACION_VALUE = "__sin_racion__"
 
@@ -121,7 +122,10 @@ export function PesajesModule() {
       const search = (value: string | undefined, filter: string) =>
         !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
 
-      const matchesAnimal = search(row.animal.apodo || row.animal.id, columnFilters.animal) || row.animal.id.toLowerCase().includes(columnFilters.animal.toLowerCase())
+      const label = getAnimalDisplayLabel(row.animal)
+      const matchesAnimal =
+        search(label, columnFilters.animal) ||
+        (!!columnFilters.animal && row.animal.id.toLowerCase().includes(columnFilters.animal.toLowerCase()))
       const matchesLote = search(row.animal.lote, columnFilters.lote)
       const matchesPesoIngreso = !columnFilters.pesoIngreso || `${row.animal.pesoIngreso}`.includes(columnFilters.pesoIngreso)
       const matchesPesoActual = !columnFilters.pesoActual || `${row.ultimoPeso}`.includes(columnFilters.pesoActual)
@@ -279,7 +283,7 @@ export function PesajesModule() {
                     <SelectContent>
                       {animalesActivos.map((a) => (
                         <SelectItem key={a.id} value={a.id}>
-                          {a.id} - {a.apodo || a.raza} ({a.lote})
+                          {getAnimalDisplayLabel(a)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -460,13 +464,15 @@ export function PesajesModule() {
                 </TableHeader>
                 <TableBody>
                   {filteredAnimalData.map(({ animal, gdp, ultimoPeso, kgGanados, trend, numPesajes, lastRacionId, lastSuplementacion }) => {
+                    const cardLabel = getAnimalDisplayLabel(animal)
+                    const subtitle = getAnimalSecondaryLabel(animal)
                     const racionNombre = lastRacionId ? racionesMap.get(lastRacionId)?.nombre : undefined
                     return (
                       <TableRow key={animal.id}>
                         <TableCell>
                           <div>
-                            <p className="text-sm font-medium text-foreground">{animal.apodo || animal.id}</p>
-                            <p className="text-xs text-muted-foreground">{animal.id} · {animal.raza}</p>
+                            <p className="text-sm font-medium text-foreground">{cardLabel}</p>
+                            <p className="text-xs text-muted-foreground">{subtitle}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -507,7 +513,7 @@ export function PesajesModule() {
           <DialogHeader>
             <DialogTitle>
               Historial de pesajes
-              {detailData?.animal ? ` · ${detailData.animal.apodo || detailData.animal.id}` : ""}
+              {detailData?.animal ? ` · ${getAnimalDisplayLabel(detailData.animal)}` : ""}
             </DialogTitle>
           </DialogHeader>
           {detailData ? (

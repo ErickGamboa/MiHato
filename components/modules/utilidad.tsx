@@ -47,6 +47,7 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { useDataStore } from "@/hooks/use-data-store"
+import { getAnimalDisplayLabel, getAnimalSecondaryLabel } from "@/lib/utils"
 
 export function UtilidadModule() {
   const { animales, ventas, pesajes, eventos, raciones, insumos, loading, createVenta } = useDataStore()
@@ -147,7 +148,7 @@ export function UtilidadModule() {
     return ventaCalcs.filter((vc) => {
       const match = (value: string | undefined, filter: string) =>
         !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
-      const animalName = vc.animal.apodo || vc.animal.id
+      const animalName = getAnimalDisplayLabel(vc.animal)
       const ingreso = formatCurrency(vc.ingresoNeto)
       const costo = formatCurrency(vc.costoTotal)
       const utilidad = formatCurrency(vc.utilidadNeta)
@@ -229,7 +230,7 @@ export function UtilidadModule() {
                       const retiro = hasActiveRetiro(eventos, a.id)
                       return (
                         <SelectItem key={a.id} value={a.id} disabled={retiro}>
-                          {a.id} - {a.apodo || a.raza} {retiro ? "(Retiro activo)" : ""}
+                          {getAnimalDisplayLabel(a)} {retiro ? "(Retiro activo)" : ""}
                         </SelectItem>
                       )
                     })}
@@ -350,14 +351,17 @@ export function UtilidadModule() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ventaCalcs.map((vc) => (
-                  <TableRow key={vc.venta.id}>
-                    <TableCell>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{vc.animal.apodo || vc.animal.id}</p>
-                        <p className="text-xs text-muted-foreground">{vc.animal.id} &middot; {vc.diasEnFinca}d</p>
-                      </div>
-                    </TableCell>
+                {ventaCalcs.map((vc) => {
+                  const label = getAnimalDisplayLabel(vc.animal)
+                  const secondary = `${getAnimalSecondaryLabel(vc.animal)} · ${vc.diasEnFinca}d`
+                  return (
+                    <TableRow key={vc.venta.id}>
+                      <TableCell>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{label}</p>
+                          <p className="text-xs text-muted-foreground">{secondary}</p>
+                        </div>
+                      </TableCell>
                     <TableCell className="text-sm">{vc.venta.canalVenta}</TableCell>
                     <TableCell className="text-right font-mono">{vc.venta.pesoVenta} kg</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(vc.ingresoNeto)}</TableCell>
@@ -371,7 +375,8 @@ export function UtilidadModule() {
                     <TableCell className="text-right font-mono">{formatCurrency(vc.costoPorKgProducido)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(vc.costoPorDia)}</TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
                 {ventaCalcs.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
@@ -389,7 +394,7 @@ export function UtilidadModule() {
       {ventaCalcs.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Desglose de Costos - {ventaCalcs[0].animal.apodo || ventaCalcs[0].animal.id}</CardTitle>
+            <CardTitle className="text-base">Desglose de Costos - {getAnimalDisplayLabel(ventaCalcs[0].animal)}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">

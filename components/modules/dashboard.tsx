@@ -22,6 +22,7 @@ import {
   getStatusColor,
   getAlertasDashboard,
 } from "@/lib/data"
+import { getAnimalDisplayLabel } from "@/lib/utils"
 import { AlertCircle, Syringe, Package, Scale as ScaleIcon } from "lucide-react"
 import {
   BarChart,
@@ -80,7 +81,8 @@ export function DashboardModule() {
 
   for (const ev of eventos) {
     if (ev.fechaFinRetiro && new Date(ev.fechaFinRetiro) > hoy) {
-      const target = ev.animalId || `Lote ${ev.lote}`
+      const animalRef = ev.animalId ? animales.find((a) => a.id === ev.animalId) : undefined
+      const target = animalRef ? getAnimalDisplayLabel(animalRef) : `Lote ${ev.lote}`
       alerts.push({
         tipo: "Retiro activo",
         mensaje: `${target}: ${ev.producto} - retiro hasta ${ev.fechaFinRetiro}`,
@@ -353,24 +355,28 @@ export function DashboardModule() {
               {animales
                 .sort((a, b) => new Date(b.fechaIngreso).getTime() - new Date(a.fechaIngreso).getTime())
                 .slice(0, 5)
-                .map((animal) => (
-                  <div key={animal.id} className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted font-mono text-xs font-bold text-foreground">
-                        {animal.id.split("-")[1]}
+                .map((animal) => {
+                  const label = getAnimalDisplayLabel(animal)
+                  const badge = animal.diio?.slice(-4) || (animal.apodo ? animal.apodo.slice(0, 2).toUpperCase() : "CR")
+                  return (
+                    <div key={animal.id} className="flex items-center justify-between rounded-lg border p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted font-mono text-xs font-bold text-foreground">
+                          {badge}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {animal.raza} · {animal.lote} · {animal.pesoIngreso} kg
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{animal.apodo || animal.id}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {animal.raza} · {animal.lote} · {animal.pesoIngreso} kg
-                        </p>
-                      </div>
+                      <Badge variant="secondary" className={getStatusColor(animal.estado)}>
+                        {animal.estado}
+                      </Badge>
                     </div>
-                    <Badge variant="secondary" className={getStatusColor(animal.estado)}>
-                      {animal.estado}
-                    </Badge>
-                  </div>
-                ))}
+                  )
+                })}
             </div>
           </CardContent>
         </Card>

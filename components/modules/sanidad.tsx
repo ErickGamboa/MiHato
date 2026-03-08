@@ -32,6 +32,7 @@ import {
   getLotes,
 } from "@/lib/data"
 import { useDataStore } from "@/hooks/use-data-store"
+import { getAnimalDisplayLabel } from "@/lib/utils"
 
 const tiposEvento = ["vacuna", "desparasitación", "antibiótico", "implante", "cirugía", "otro"]
 const viasAplicacion = ["Subcutánea", "Intramuscular", "Oral", "Tópica", "Subcutánea oreja", "Intravenosa"]
@@ -73,7 +74,8 @@ export function SanidadModule() {
 
     // Active retiros
     for (const ev of retirosActivos) {
-      const target = ev.animalId || `Lote ${ev.lote}`
+      const animalRef = ev.animalId ? animales.find((a) => a.id === ev.animalId) : undefined
+      const target = animalRef ? getAnimalDisplayLabel(animalRef) : `Lote ${ev.lote}`
       al.push({
         tipo: "Retiro activo",
         mensaje: `${target}: ${ev.producto} hasta ${ev.fechaFinRetiro}`,
@@ -162,7 +164,8 @@ export function SanidadModule() {
     return eventos.filter((ev) => {
       const match = (value: string | undefined, filter: string) =>
         !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
-      const target = ev.animalId ? `Animal ${ev.animalId}` : `Lote ${ev.lote}`
+      const animalRef = ev.animalId ? animales.find((a: Animal) => a.id === ev.animalId) : undefined
+      const target = animalRef ? getAnimalDisplayLabel(animalRef) : `Lote ${ev.lote}`
       const retiro = ev.diasRetiro ? `${ev.diasRetiro} días` : "Sin retiro"
       const estado = ev.fechaFinRetiro && new Date(ev.fechaFinRetiro) > new Date() ? "Retiro activo" : "Sin retiro"
       return (
@@ -176,7 +179,7 @@ export function SanidadModule() {
         match(estado, eventoFilters.estado)
       )
     })
-  }, [eventos, eventoFilters])
+  }, [eventos, eventoFilters, animales])
 
   if (loading) {
     return <div className="flex items-center justify-center p-8">Cargando datos...</div>
@@ -219,7 +222,7 @@ export function SanidadModule() {
                     <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                     <SelectContent>
                       {animalesActivos.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.id} - {a.apodo || a.raza}</SelectItem>
+                        <SelectItem key={a.id} value={a.id}>{getAnimalDisplayLabel(a)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -403,9 +406,8 @@ export function SanidadModule() {
                       .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
                       .map((ev) => {
                         const retiroActivo = ev.fechaFinRetiro && new Date(ev.fechaFinRetiro) > hoy
-                        const target = ev.animalId
-                          ? `${ev.animalId} (${animales.find((a: Animal) => a.id === ev.animalId)?.apodo || ""})`
-                          : `Lote ${ev.lote}`
+                        const animalRef = ev.animalId ? animales.find((a: Animal) => a.id === ev.animalId) : undefined
+                        const target = animalRef ? getAnimalDisplayLabel(animalRef) : `Lote ${ev.lote}`
                         return (
                           <TableRow key={ev.id}>
                             <TableCell className="text-sm">{ev.fecha}</TableCell>

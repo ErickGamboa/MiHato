@@ -53,6 +53,7 @@ import {
   getLotes,
 } from "@/lib/data"
 import { useDataStore } from "@/hooks/use-data-store"
+import { getAnimalDisplayLabel, getAnimalSecondaryLabel } from "@/lib/utils"
 
 export function InventarioModule() {
   const {
@@ -160,7 +161,7 @@ export function InventarioModule() {
       const matches = (value: string | undefined, filter: string) =>
         !filter || (value ?? "").toLowerCase().includes(filter.toLowerCase())
 
-      const idMatch = matches(animal.diio || animal.id, columnFilters.id)
+      const idMatch = matches(getAnimalDisplayLabel(animal), columnFilters.id)
       const apodoMatch = matches(animal.apodo, columnFilters.apodo)
       const razaMatch = matches(animal.raza, columnFilters.raza)
       const generoMatch = matches(animal.genero, columnFilters.genero)
@@ -697,7 +698,7 @@ export function InventarioModule() {
                       onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
                     />
                   </TableHead>
-                  <TableHead>DIIO / ID</TableHead>
+                  <TableHead>Identificador</TableHead>
                   <TableHead>Apodo</TableHead>
                   <TableHead>Raza</TableHead>
                   <TableHead>Género</TableHead>
@@ -712,7 +713,7 @@ export function InventarioModule() {
                   <TableHead className="w-10" />
                   <TableHead>
                     <Input
-                      placeholder="DIIO / ID"
+                      placeholder="DIIO o apodo"
                       value={columnFilters.id}
                       onChange={(e) => setColumnFilters((prev) => ({ ...prev, id: e.target.value }))}
                     />
@@ -781,6 +782,7 @@ export function InventarioModule() {
               </TableHeader>
               <TableBody>
                 {columnFiltered.map((animal) => {
+                  const displayLabel = getAnimalDisplayLabel(animal)
                   const ultimoPeso = getUltimoPeso(animal.id, pesajes)
                   const animalPesajes = pesajes.filter((p: Pesaje) => p.animalId === animal.id)
                   const gdp = calcGDP(animalPesajes)
@@ -788,12 +790,12 @@ export function InventarioModule() {
                     <TableRow key={animal.id}>
                       <TableCell className="text-center">
                         <Checkbox
-                          aria-label={`Seleccionar ${animal.id}`}
+                          aria-label={`Seleccionar ${displayLabel}`}
                           checked={selectedAnimalIds.includes(animal.id)}
                           onCheckedChange={(checked) => toggleSelectAnimal(animal.id, Boolean(checked))}
                         />
                       </TableCell>
-                      <TableCell className="font-mono text-xs font-medium">{animal.diio || animal.id}</TableCell>
+                      <TableCell className="font-medium">{displayLabel}</TableCell>
                       <TableCell className="font-medium">{animal.apodo || "—"}</TableCell>
                       <TableCell>{animal.raza}</TableCell>
                       <TableCell className="capitalize">{animal.genero}</TableCell>
@@ -933,7 +935,7 @@ export function InventarioModule() {
                 </p>
                 <ul className="mt-2 space-y-1 text-muted-foreground">
                   {moveTargetAnimals.map((animal) => (
-                    <li key={animal.id}>• {animal.apodo || animal.id} — {animal.lote}</li>
+                    <li key={animal.id}>• {getAnimalDisplayLabel(animal)} — {animal.lote}</li>
                   ))}
                 </ul>
                 {cambioLoteForm.loteOrigen && (
@@ -1007,6 +1009,8 @@ function AnimalFicha({
   const lotHistory = [...animal.historialLotes].sort(
     (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
   )
+  const displayLabel = getAnimalDisplayLabel(animal)
+  const secondaryLabel = getAnimalSecondaryLabel(animal)
 
   return (
     <div className="flex flex-col gap-4">
@@ -1023,14 +1027,12 @@ function AnimalFicha({
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <h3 className="text-xl font-bold text-foreground">{animal.apodo || animal.id}</h3>
+              <h3 className="text-xl font-bold text-foreground">{displayLabel}</h3>
               <Badge variant="secondary" className={getStatusColor(animal.estado)}>
                 {animal.estado}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {animal.id} &middot; {animal.diio || "Sin DIIO"} &middot; {animal.raza} &middot; {animal.genero}
-            </p>
+            <p className="text-sm text-muted-foreground">{secondaryLabel} · {animal.genero}</p>
           </div>
         </div>
       </div>
@@ -1077,8 +1079,7 @@ function AnimalFicha({
             <Card>
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  <InfoField label="DIIO (ID)" value={animal.diio || animal.id} />
-                  <InfoField label="ID interno" value={animal.id} />
+                  <InfoField label="DIIO" value={animal.diio || "Sin DIIO"} />
                   <InfoField label="ID Subasta" value={animal.idSubasta || "—"} />
                   <InfoField label="ID Finca" value={animal.idFinca || "—"} />
                   <InfoField label="Fierro Origen" value={animal.fierroOrigen || "—"} />
