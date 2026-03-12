@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight, Plus, BarChart3 } from "lucide-react"
+import { DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight, Plus, BarChart3, ChevronsUpDown } from "lucide-react"
 import {
   type Venta,
   type Animal,
@@ -50,11 +50,17 @@ import {
 } from "recharts"
 import { useDataStore } from "@/hooks/use-data-store"
 import { getAnimalDisplayLabel, getAnimalSecondaryLabel } from "@/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 
 export function UtilidadModule() {
   const { animales, ventas, pesajes, eventos, raciones, insumos, loading, createVenta } = useDataStore()
   const [showNewVenta, setShowNewVenta] = useState(false)
   const today = formatCRDateOnly(getCostaRicaNow())
+  const animalesActivos = animales.filter((a) => a.estado === "activo")
+  const animalesVendidos = animales.filter((a) => a.estado === "vendido")
+  const [filtroGraficoModo, setFiltroGraficoModo] = useState<"animal" | "lote">("animal")
+  const [filtroGraficoId, setFiltroGraficoId] = useState<string>("")
   const [newVenta, setNewVenta] = useState({
     animalId: "",
     fechaVenta: today,
@@ -69,17 +75,14 @@ export function UtilidadModule() {
   const [ventaFilters, setVentaFilters] = useState({
     animal: "",
     canal: "",
+    lote: "",
     peso: "",
     ingreso: "",
     costo: "",
-    utilidad: "",
     margen: "",
     costoKg: "",
     costoDia: "",
   })
-
-  const animalesVendidos = animales.filter((a) => a.estado === "vendido")
-  const animalesActivos = animales.filter((a) => a.estado === "activo")
 
   // Calculate profitability per sold animal
   const ventaCalcs = useMemo(() => {
@@ -130,13 +133,14 @@ export function UtilidadModule() {
         costoPorDia,
         precioEquilibrio,
         diasEnFinca,
+        lote: animal.lote,
       }
     }).filter(Boolean) as any[]
   }, [ventas, animales, eventos])
 
   // Aggregates por lote
   const loteData = useMemo(() => {
-    const lotes = ["L-01", "L-02", "L-03"]
+    const lotes = Array.from(new Set(ventaCalcs.map((vc) => vc.animal.lote)))
     return lotes.map((lote) => {
       const ventasLote = ventaCalcs.filter((vc) => vc.animal.lote === lote)
       const ingresos = ventasLote.reduce((s, v) => s + v.ingresoNeto, 0)
@@ -154,6 +158,83 @@ export function UtilidadModule() {
     ? ventaCalcs.reduce((s, v) => s + v.margen, 0) / ventaCalcs.length
     : 0
 
+  const lotesVendidos = useMemo(() => Array.from(new Set(ventaCalcs.map((vc) => vc.animal.lote))), [ventaCalcs])
+  const animalesUnicosVendidos = useMemo(
+    () => {
+      const seen = new Set<string>()
+      const list: { id: string; label: string }[] = []
+      for (const vc of ventaCalcs) {
+        if (!seen.has(vc.animal.id)) {
+          seen.add(vc.animal.id)
+          list.push({ id: vc.animal.id, label: getAnimalDisplayLabel(vc.animal) })
+        }
+      }
+      return list
+    },
+    [ventaCalcs]
+  )
+
+  const selectedGraficoId = useMemo(() => {
+    if (filtroGraficoModo === "lote") {
+      const isValid = filtroGraficoId && lotesVendidos.includes(filtroGraficoId)
+      return isValid ? filtroGraficoId : lotesVendidos[0] ?? ""
+    }
+    const isValid = filtroGraficoId && animalesUnicosVendidos.some((a) => a.id === filtroGraficoId)
+    return isValid ? filtroGraficoId : animalesUnicosVendidos[0]?.id ?? ""
+  }, [filtroGraficoId, filtroGraficoModo, lotesVendidos, animalesUnicosVendidos])
+
+  const graphCalcs = useMemo(() => {
+    if (!selectedGraficoId) return []
+    if (filtroGraficoModo === "lote") {
+      return ventaCalcs.filter((vc) => vc.animal.lote === selectedGraficoId)
+    }
+    return ventaCalcs.filter((vc) => vc.animal.id === selectedGraficoId)
+  }, [selectedGraficoId, filtroGraficoModo, ventaCalcs])
+
+  const graphSummary = useMemo(() => {
+    if (graphCalcs.length === 0) return null
+    const sum = graphCalcs.reduce(
+      (acc, item) => {
+        acc.costoCompra += item.costoCompra
+        acc.costoAlimentacion += item.costoAlimentacion
+        acc.costoSanidad += item.costoSanidad
+        acc.costosSalida += item.venta.costosSalida
+        acc.costoTotal += item.costoTotal
+        acc.ingresoNeto += item.ingresoNeto
+        acc.kgProducidos += item.kgProducidos
+        acc.pesoVenta += item.venta.pesoVenta
+        acc.diasEnFinca += item.diasEnFinca
+        return acc
+      },
+      {
+        costoCompra: 0,
+        costoAlimentacion: 0,
+        costoSanidad: 0,
+        costosSalida: 0,
+        costoTotal: 0,
+        ingresoNeto: 0,
+        kgProducidos: 0,
+        pesoVenta: 0,
+        diasEnFinca: 0,
+      }
+    )
+
+    const costoPorKgProducido = sum.kgProducidos > 0 ? sum.costoTotal / sum.kgProducidos : 0
+    const costoPorDia = sum.diasEnFinca > 0 ? sum.costoTotal / sum.diasEnFinca : 0
+    const precioEquilibrio = sum.pesoVenta > 0 ? sum.costoTotal / sum.pesoVenta : 0
+
+    return {
+      costoCompra: sum.costoCompra,
+      costoAlimentacion: sum.costoAlimentacion,
+      costoSanidad: sum.costoSanidad,
+      costosSalida: sum.costosSalida,
+      costoPorKgProducido,
+      costoPorDia,
+      precioEquilibrio,
+      kgProducidos: sum.kgProducidos,
+    }
+  }, [graphCalcs])
+
   const filteredVentaCalcs = useMemo(() => {
     return ventaCalcs.filter((vc) => {
       const match = (value: string | undefined, filter: string) =>
@@ -168,10 +249,10 @@ export function UtilidadModule() {
       return (
         match(animalName, ventaFilters.animal) &&
         match(vc.venta.canalVenta, ventaFilters.canal) &&
+        match(vc.animal.lote, ventaFilters.lote) &&
         (!ventaFilters.peso || `${vc.venta.pesoVenta}`.includes(ventaFilters.peso)) &&
         (!ventaFilters.ingreso || ingreso.toLowerCase().includes(ventaFilters.ingreso.toLowerCase())) &&
         (!ventaFilters.costo || costo.toLowerCase().includes(ventaFilters.costo.toLowerCase())) &&
-        (!ventaFilters.utilidad || utilidad.toLowerCase().includes(ventaFilters.utilidad.toLowerCase())) &&
         (!ventaFilters.margen || margen.toLowerCase().includes(ventaFilters.margen.toLowerCase())) &&
         (!ventaFilters.costoKg || costoKg.toLowerCase().includes(ventaFilters.costoKg.toLowerCase())) &&
         (!ventaFilters.costoDia || costoDia.toLowerCase().includes(ventaFilters.costoDia.toLowerCase()))
@@ -376,6 +457,34 @@ export function UtilidadModule() {
         </Card>
       </div>
 
+      {/* Filtros tabla */}
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-end">
+        <div className="w-full sm:w-1/4">
+          <Label>Lote</Label>
+          <Input
+            value={ventaFilters.lote}
+            onChange={(e) => setVentaFilters((f) => ({ ...f, lote: e.target.value }))}
+            placeholder="Filtrar por lote"
+          />
+        </div>
+        <div className="w-full sm:w-1/4">
+          <Label>Animal</Label>
+          <Input
+            value={ventaFilters.animal}
+            onChange={(e) => setVentaFilters((f) => ({ ...f, animal: e.target.value }))}
+            placeholder="ID, apodo, etc."
+          />
+        </div>
+        <div className="w-full sm:w-1/4">
+          <Label>Canal</Label>
+          <Input
+            value={ventaFilters.canal}
+            onChange={(e) => setVentaFilters((f) => ({ ...f, canal: e.target.value }))}
+            placeholder="Canal o causa"
+          />
+        </div>
+      </div>
+
       {/* Detalle por animal vendido */}
       <Card>
         <CardHeader>
@@ -387,7 +496,8 @@ export function UtilidadModule() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Animal</TableHead>
-                  <TableHead>Canal</TableHead>
+                  <TableHead>Canal / Causa</TableHead>
+                  <TableHead>Lote</TableHead>
                   <TableHead className="text-right">Peso Venta</TableHead>
                   <TableHead className="text-right">Ingreso</TableHead>
                   <TableHead className="text-right">Costo Total</TableHead>
@@ -398,7 +508,7 @@ export function UtilidadModule() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ventaCalcs.map((vc) => {
+                {filteredVentaCalcs.map((vc) => {
                   const label = getAnimalDisplayLabel(vc.animal)
                   const secondary = `${getAnimalSecondaryLabel(vc.animal)} · ${vc.diasEnFinca}d`
                   return (
@@ -410,6 +520,7 @@ export function UtilidadModule() {
                         </div>
                       </TableCell>
                     <TableCell className="text-sm">{vc.venta.canalVenta}</TableCell>
+                    <TableCell className="text-sm">{vc.animal.lote}</TableCell>
                     <TableCell className="text-right font-mono">{vc.venta.pesoVenta} kg</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(vc.ingresoNeto)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(vc.costoTotal)}</TableCell>
@@ -424,9 +535,9 @@ export function UtilidadModule() {
                   </TableRow>
                   )
                 })}
-                {ventaCalcs.length === 0 && (
+                {filteredVentaCalcs.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
                       No hay ventas registradas.
                     </TableCell>
                   </TableRow>
@@ -438,20 +549,69 @@ export function UtilidadModule() {
       </Card>
 
       {/* Cost breakdown for sold animal */}
-      {ventaCalcs.length > 0 && (
+      {graphCalcs.length > 0 && graphSummary && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Desglose de Costos - {getAnimalDisplayLabel(ventaCalcs[0].animal)}</CardTitle>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="text-base">Desglose de Costos</CardTitle>
+              <div className="w-full sm:w-64">
+                <Label className="text-xs text-muted-foreground">Modo</Label>
+                <div className="mb-2 flex gap-2">
+                  <Button variant={filtroGraficoModo === "animal" ? "default" : "outline"} size="sm" onClick={() => setFiltroGraficoModo("animal")}>
+                    Animal
+                  </Button>
+                  <Button variant={filtroGraficoModo === "lote" ? "default" : "outline"} size="sm" onClick={() => setFiltroGraficoModo("lote")}>
+                    Lote
+                  </Button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground">Selecciona</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between">
+                        {selectedGraficoId
+                          ? filtroGraficoModo === "lote"
+                            ? `Lote ${selectedGraficoId}`
+                            : (animalesUnicosVendidos.find((a) => a.id === selectedGraficoId)?.label ?? "")
+                          : "Buscar..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0">
+                      <Command>
+                        <CommandInput placeholder={filtroGraficoModo === "animal" ? "Buscar animal" : "Buscar lote"} />
+                        <CommandList>
+                          <CommandEmpty>No hay resultados</CommandEmpty>
+                          <CommandGroup>
+                            {filtroGraficoModo === "lote"
+                              ? lotesVendidos.map((lote) => (
+                                  <CommandItem key={`lote-${lote}`} value={lote} onSelect={(v) => setFiltroGraficoId(v)}>
+                                    Lote {lote}
+                                  </CommandItem>
+                                ))
+                              : animalesUnicosVendidos.map((a) => (
+                                  <CommandItem key={a.id} value={a.id} onSelect={(v) => setFiltroGraficoId(v)}>
+                                    {a.label}
+                                  </CommandItem>
+                                ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={[
-                    { nombre: "Compra", valor: ventaCalcs[0].costoCompra },
-                    { nombre: "Alimentación", valor: ventaCalcs[0].costoAlimentacion },
-                    { nombre: "Sanidad", valor: ventaCalcs[0].costoSanidad },
-                    { nombre: "Salida", valor: ventaCalcs[0].venta.costosSalida },
+                    { nombre: "Compra", valor: graphSummary.costoCompra },
+                    { nombre: "Alimentación", valor: graphSummary.costoAlimentacion },
+                    { nombre: "Sanidad", valor: graphSummary.costoSanidad },
+                    { nombre: "Salida", valor: graphSummary.costosSalida },
                   ]}
                   barSize={50}
                 >
@@ -470,19 +630,19 @@ export function UtilidadModule() {
               <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <p className="text-muted-foreground">Precio equilibrio</p>
-                  <p className="font-mono font-bold text-foreground">{formatCurrency(ventaCalcs[0].precioEquilibrio)}/kg</p>
+                  <p className="font-mono font-bold text-foreground">{formatCurrency(graphSummary.precioEquilibrio)}/kg</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Costo/kg producido</p>
-                  <p className="font-mono font-bold text-foreground">{formatCurrency(ventaCalcs[0].costoPorKgProducido)}</p>
+                  <p className="font-mono font-bold text-foreground">{formatCurrency(graphSummary.costoPorKgProducido)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Costo/día</p>
-                  <p className="font-mono font-bold text-foreground">{formatCurrency(ventaCalcs[0].costoPorDia)}</p>
+                  <p className="font-mono font-bold text-foreground">{formatCurrency(graphSummary.costoPorDia)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Kg producidos</p>
-                  <p className="font-mono font-bold text-foreground">{ventaCalcs[0].kgProducidos} kg</p>
+                  <p className="font-mono font-bold text-foreground">{graphSummary.kgProducidos} kg</p>
                 </div>
               </div>
             </div>

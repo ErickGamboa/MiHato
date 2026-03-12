@@ -384,7 +384,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await Promise.all([...insumoPromises, ...racionPromises])
       await refresh()
     },
-    [refresh, state.animales, state.insumos, state.raciones]
+    [refresh, state.animales, state.insumos, state.raciones, userId]
   )
 
   const deactivateExpiredRaciones = useCallback(
@@ -471,7 +471,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const deleteLot = useCallback(
@@ -489,7 +489,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       await refresh()
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const createLotMovement = useCallback(
@@ -576,7 +576,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createChangeRecord,
       isIdentifierDuplicated,
     }),
-    [state, loading, refresh, createAnimal, updateAnimal, createPesaje, createInsumo, updateInsumo, adjustInsumoStock, createEvento, createMedicamento, updateMedicamento, createRacion, updateRacion, toggleRacion, autoConsumeRaciones, deactivateExpiredRaciones, createEscenario, createVenta, createCosto, createLot, updateLot, deleteLot, createLotMovement, moveAnimalToLot, createChangeRecord, isIdentifierDuplicated]
+    [state, loading, refresh, createAnimal, updateAnimal, createPesaje, createInsumo, updateInsumo, deleteInsumo, adjustInsumoStock, createEvento, createMedicamento, updateMedicamento, createRacion, updateRacion, deleteRacion, toggleRacion, autoConsumeRaciones, deactivateExpiredRaciones, createEscenario, createVenta, createCosto, createLot, updateLot, deleteLot, createLotMovement, moveAnimalToLot, createChangeRecord, isIdentifierDuplicated]
   )
 
   return <DataStoreContext.Provider value={value}>{children}</DataStoreContext.Provider>

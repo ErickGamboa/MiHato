@@ -71,7 +71,7 @@ export function SanidadModule() {
     return eventos.filter(
       (ev) => ev.fechaFinRetiro && new Date(ev.fechaFinRetiro) > hoy
     )
-  }, [eventos])
+  }, [eventos, hoy])
 
   // Próximas dosis / vencidas (simple mock)
   const alertas = useMemo(() => {
@@ -105,7 +105,7 @@ export function SanidadModule() {
     }
 
     return al
-  }, [eventos, medicamentos, retirosActivos])
+  }, [medicamentos, retirosActivos, animales, hoy])
 
   const handleCreateEvento = async () => {
     if (!newEvento.fecha || !newEvento.producto || !newEvento.dosis) {
@@ -163,7 +163,7 @@ export function SanidadModule() {
       }
     }
     return costosPorAnimal
-  }, [eventos])
+  }, [eventos, animales])
 
   const filteredEventos = useMemo(() => {
     return eventos.filter((ev) => {

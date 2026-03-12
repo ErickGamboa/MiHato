@@ -123,18 +123,8 @@ export function InventarioModule() {
     }))
   }, [lotCatalog, animales])
 
-  useEffect(() => {
-    if (!hasAvailableLots) {
-      setNewForm((prev) => ({ ...prev, lote: "" }))
-      return
-    }
-    setNewForm((prev) => {
-      if (!prev.lote || !lotNames.includes(prev.lote)) {
-        return { ...prev, lote: lotNames[0] }
-      }
-      return prev
-    })
-  }, [hasAvailableLots, lotNames])
+  // Derive lote predeterminado cuando existan lotes; evitamos setState en efecto
+  const defaultLot = hasAvailableLots ? lotNames[0] : ""
 
   const filtered = useMemo(() => {
     return animales.filter((a) => {
