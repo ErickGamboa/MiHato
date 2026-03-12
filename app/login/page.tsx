@@ -10,6 +10,7 @@ export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get("redirect") || "/"
+  const errorParam = searchParams.get("error")
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -72,6 +73,9 @@ export default function LoginPage() {
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {errorParam === "no-autorizado" ? (
+            <p className="text-sm text-destructive">Tu cuenta no está autorizada. Usa un correo que inicie con mihato.</p>
+          ) : null}
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Ingresando..." : "Entrar"}
