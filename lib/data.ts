@@ -782,22 +782,23 @@ export async function createEscenarioRecord(userId: string, esc: Omit<Escenario,
 }
 
 export async function createVentaRecord(userId: string, venta: Omit<Venta, "id"> & { id?: string }): Promise<Venta> {
+  const esMuerte = venta.canalVenta?.toLowerCase() === "muerte" || venta.canalVenta?.toLowerCase().startsWith("muerte")
   const payload = {
     id: venta.id ?? crypto.randomUUID(),
     animal_id: venta.animalId,
     fecha_venta: venta.fechaVenta,
     canal_venta: venta.canalVenta,
-    peso_venta: venta.pesoVenta,
-    precio_por_kg: venta.precioPorKg,
-    costos_salida: venta.costosSalida,
-    merma: venta.merma,
+    peso_venta: esMuerte ? 0 : venta.pesoVenta,
+    precio_por_kg: esMuerte ? 0 : venta.precioPorKg,
+    costos_salida: esMuerte ? 0 : venta.costosSalida,
+    merma: esMuerte ? 0 : venta.merma,
     tenant_id: userId,
   }
   const { data, error } = await bovinos("ventas").insert(payload).select().single()
   if (error) throw error
-  // Marcar el animal como vendido
+  // Marcar el animal según el tipo de salida
   await bovinos("animales")
-    .update({ estado: "vendido" })
+    .update({ estado: esMuerte ? "muerto" : "vendido" })
     .eq("id", venta.animalId)
     .eq("tenant_id", userId)
 

@@ -56,8 +56,15 @@ export function UtilidadModule() {
   const [showNewVenta, setShowNewVenta] = useState(false)
   const today = formatCRDateOnly(getCostaRicaNow())
   const [newVenta, setNewVenta] = useState({
-    animalId: "", fechaVenta: today, canalVenta: "",
-    pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0",
+    animalId: "",
+    fechaVenta: today,
+    canalVenta: "",
+    pesoVenta: "",
+    precioPorKg: "",
+    costosSalida: "0",
+    merma: "0",
+    tipoSalida: "venta" as "venta" | "muerte",
+    causa: "",
   })
   const [ventaFilters, setVentaFilters] = useState({
     animal: "",
@@ -80,8 +87,8 @@ export function UtilidadModule() {
       const animal = animales.find((a: Animal) => a.id === venta.animalId)
       if (!animal) return null
 
-      const ingresoBruto = venta.pesoVenta * venta.precioPorKg
-      const ingresoNeto = ingresoBruto * (1 - venta.merma / 100)
+    const ingresoBruto = venta.pesoVenta * venta.precioPorKg
+    const ingresoNeto = ingresoBruto * (1 - venta.merma / 100)
 
       // Costo compra
       const costoCompra = animal.precioTotal
@@ -125,7 +132,7 @@ export function UtilidadModule() {
         diasEnFinca,
       }
     }).filter(Boolean) as any[]
-  }, [ventas])
+  }, [ventas, animales, eventos])
 
   // Aggregates por lote
   const loteData = useMemo(() => {
@@ -173,28 +180,44 @@ export function UtilidadModule() {
   }, [ventaCalcs, ventaFilters])
 
   const handleNewVenta = async () => {
-    if (!newVenta.animalId || !newVenta.fechaVenta || !newVenta.pesoVenta || !newVenta.precioPorKg) {
-      alert("Complete los campos obligatorios: animal, fecha, peso y precio/kg.")
+    const esMuerte = newVenta.tipoSalida === "muerte"
+
+    if (!newVenta.animalId || !newVenta.fechaVenta) {
+      alert("Complete los campos obligatorios: animal y fecha.")
+      return
+    }
+    if (!esMuerte && (!newVenta.pesoVenta || !newVenta.precioPorKg)) {
+      alert("Complete peso y precio/kg para registrar una venta.")
       return
     }
     if (hasActiveRetiro(eventos, newVenta.animalId)) {
-      alert("Este animal tiene un retiro sanitario activo. No se puede registrar la venta.")
+      alert("Este animal tiene un retiro sanitario activo. No se puede registrar la salida.")
       return
     }
 
     const v = {
       animalId: newVenta.animalId,
       fechaVenta: newVenta.fechaVenta,
-      canalVenta: newVenta.canalVenta,
-      pesoVenta: Number.parseFloat(newVenta.pesoVenta),
-      precioPorKg: Number.parseFloat(newVenta.precioPorKg),
-      costosSalida: Number.parseFloat(newVenta.costosSalida) || 0,
-      merma: Number.parseFloat(newVenta.merma) || 0,
+      canalVenta: esMuerte ? (newVenta.causa ? `muerte - ${newVenta.causa}` : "muerte") : newVenta.canalVenta,
+      pesoVenta: esMuerte ? 0 : Number.parseFloat(newVenta.pesoVenta),
+      precioPorKg: esMuerte ? 0 : Number.parseFloat(newVenta.precioPorKg),
+      costosSalida: esMuerte ? 0 : Number.parseFloat(newVenta.costosSalida) || 0,
+      merma: esMuerte ? 0 : Number.parseFloat(newVenta.merma) || 0,
     }
     try {
       await createVenta(v)
       setShowNewVenta(false)
-      setNewVenta({ animalId: "", fechaVenta: today, canalVenta: "", pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0" })
+      setNewVenta({
+        animalId: "",
+        fechaVenta: today,
+        canalVenta: "",
+        pesoVenta: "",
+        precioPorKg: "",
+        costosSalida: "0",
+        merma: "0",
+        tipoSalida: "venta",
+        causa: "",
+      })
     } catch (error) {
       console.error(error)
       alert("No se pudo registrar la venta.")
@@ -216,12 +239,12 @@ export function UtilidadModule() {
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              Registrar Venta
+              Registrar salida
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Registrar Venta</DialogTitle>
+              <DialogTitle>Registrar salida</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
@@ -242,38 +265,59 @@ export function UtilidadModule() {
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <Label>Fecha Venta *</Label>
+                  <Label>Fecha *</Label>
                   <Input type="date" value={newVenta.fechaVenta} onChange={(e) => setNewVenta({ ...newVenta, fechaVenta: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Canal de Venta</Label>
-                  <Input value={newVenta.canalVenta} onChange={(e) => setNewVenta({ ...newVenta, canalVenta: e.target.value })} />
+                  <Label>Tipo de salida *</Label>
+                  <Select
+                    value={newVenta.tipoSalida}
+                    onValueChange={(value: "venta" | "muerte") => setNewVenta({ ...newVenta, tipoSalida: value })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="venta">Venta</SelectItem>
+                      <SelectItem value="muerte">Muerte</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label>Peso Venta (kg) *</Label>
-                  <Input type="number" value={newVenta.pesoVenta} onChange={(e) => setNewVenta({ ...newVenta, pesoVenta: e.target.value })} />
+
+              {newVenta.tipoSalida === "venta" ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label>Canal de Venta</Label>
+                    <Input value={newVenta.canalVenta} onChange={(e) => setNewVenta({ ...newVenta, canalVenta: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Peso Venta (kg) *</Label>
+                    <Input type="number" value={newVenta.pesoVenta} onChange={(e) => setNewVenta({ ...newVenta, pesoVenta: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Precio por kg *</Label>
+                    <Input type="number" value={newVenta.precioPorKg} onChange={(e) => setNewVenta({ ...newVenta, precioPorKg: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Costos de Salida</Label>
+                    <Input type="number" value={newVenta.costosSalida} onChange={(e) => setNewVenta({ ...newVenta, costosSalida: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Merma (%)</Label>
+                    <Input type="number" value={newVenta.merma} onChange={(e) => setNewVenta({ ...newVenta, merma: e.target.value })} />
+                  </div>
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Precio por kg *</Label>
-                  <Input type="number" value={newVenta.precioPorKg} onChange={(e) => setNewVenta({ ...newVenta, precioPorKg: e.target.value })} />
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-2 sm:col-span-2">
+                    <Label>Causa</Label>
+                    <Input value={newVenta.causa} onChange={(e) => setNewVenta({ ...newVenta, causa: e.target.value })} placeholder="Enfermedad, accidente, etc." />
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label>Costos de Salida</Label>
-                  <Input type="number" value={newVenta.costosSalida} onChange={(e) => setNewVenta({ ...newVenta, costosSalida: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>Merma (%)</Label>
-                  <Input type="number" value={newVenta.merma} onChange={(e) => setNewVenta({ ...newVenta, merma: e.target.value })} />
-                </div>
-              </div>
+              )}
             </div>
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="outline" onClick={() => setShowNewVenta(false)}>Cancelar</Button>
-              <Button onClick={handleNewVenta}>Registrar Venta</Button>
+              <Button onClick={handleNewVenta}>Registrar salida</Button>
             </div>
           </DialogContent>
         </Dialog>
