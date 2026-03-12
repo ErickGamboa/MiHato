@@ -51,6 +51,8 @@ import {
   calcGDP,
   getUltimoPeso,
   getLotes,
+  getCostaRicaNow,
+  formatCRDateOnly,
 } from "@/lib/data"
 import { useDataStore } from "@/hooks/use-data-store"
 import { getAnimalDisplayLabel, getAnimalSecondaryLabel } from "@/lib/utils"
@@ -79,7 +81,9 @@ export function InventarioModule() {
   const [showManageLoteDialog, setShowManageLoteDialog] = useState(false)
   const [selectedAnimalIds, setSelectedAnimalIds] = useState<string[]>([])
   const [moveTargets, setMoveTargets] = useState<string[]>([])
-  const [cambioLoteForm, setCambioLoteForm] = useState({ fecha: new Date().toISOString().split("T")[0], loteOrigen: "", loteDestino: "", motivo: "" })
+  const today = formatCRDateOnly(getCostaRicaNow())
+
+  const [cambioLoteForm, setCambioLoteForm] = useState({ fecha: today, loteOrigen: "", loteDestino: "", motivo: "" })
   const [lotForm, setLotForm] = useState({ nombre: "", descripcion: "", capacidad: "", notas: "" })
   const [editingLotId, setEditingLotId] = useState<string | null>(null)
   const [columnFilters, setColumnFilters] = useState({
@@ -97,7 +101,7 @@ export function InventarioModule() {
   // New animal form
   const [newForm, setNewForm] = useState({
     diio: "", idSubasta: "", idFinca: "", fierroOrigen: "",
-    genero: "macho" as Gender, raza: "", fechaIngreso: new Date().toISOString().split("T")[0],
+    genero: "macho" as Gender, raza: "", fechaIngreso: today,
     procedencia: "finca" as "finca" | "subasta", pesoIngreso: "",
     apodo: "", lote: "", precioPorKg: "", costoTransporte: "0", comision: "0",
   })
@@ -291,7 +295,7 @@ export function InventarioModule() {
   }
 
   const resetCambioForm = () => {
-    setCambioLoteForm({ fecha: new Date().toISOString().split("T")[0], loteOrigen: "", loteDestino: "", motivo: "" })
+    setCambioLoteForm({ fecha: today, loteOrigen: "", loteDestino: "", motivo: "" })
   }
 
   const handleMoveDialogChange = (open: boolean) => {
@@ -310,7 +314,7 @@ export function InventarioModule() {
     const origenSet = new Set(lotesSelec)
     const origenValue = origenSet.size === 1 ? Array.from(origenSet)[0] : "Múltiples"
     setCambioLoteForm({
-      fecha: new Date().toISOString().split("T")[0],
+      fecha: today,
       loteOrigen: origenValue,
       loteDestino: "",
       motivo: "",
@@ -400,7 +404,7 @@ export function InventarioModule() {
     setShowNewDialog(false)
     setNewForm({
       diio: "", idSubasta: "", idFinca: "", fierroOrigen: "",
-      genero: "macho", raza: "", fechaIngreso: new Date().toISOString().split("T")[0],
+      genero: "macho", raza: "", fechaIngreso: today,
       procedencia: "finca", pesoIngreso: "", apodo: "", lote: lotNames[0] ?? "",
       precioPorKg: "", costoTransporte: "0", comision: "0",
     })

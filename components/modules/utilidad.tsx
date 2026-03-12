@@ -36,6 +36,8 @@ import {
   calcGDP,
   getStatusColor,
   hasActiveRetiro,
+  getCostaRicaNow,
+  formatCRDateOnly,
 } from "@/lib/data"
 import {
   BarChart,
@@ -52,8 +54,9 @@ import { getAnimalDisplayLabel, getAnimalSecondaryLabel } from "@/lib/utils"
 export function UtilidadModule() {
   const { animales, ventas, pesajes, eventos, raciones, insumos, loading, createVenta } = useDataStore()
   const [showNewVenta, setShowNewVenta] = useState(false)
+  const today = formatCRDateOnly(getCostaRicaNow())
   const [newVenta, setNewVenta] = useState({
-    animalId: "", fechaVenta: new Date().toISOString().split("T")[0], canalVenta: "",
+    animalId: "", fechaVenta: today, canalVenta: "",
     pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0",
   })
   const [ventaFilters, setVentaFilters] = useState({
@@ -191,7 +194,7 @@ export function UtilidadModule() {
     try {
       await createVenta(v)
       setShowNewVenta(false)
-      setNewVenta({ animalId: "", fechaVenta: new Date().toISOString().split("T")[0], canalVenta: "", pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0" })
+      setNewVenta({ animalId: "", fechaVenta: today, canalVenta: "", pesoVenta: "", precioPorKg: "", costosSalida: "0", merma: "0" })
     } catch (error) {
       console.error(error)
       alert("No se pudo registrar la venta.")

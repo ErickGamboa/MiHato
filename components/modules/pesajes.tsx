@@ -31,6 +31,8 @@ import {
   calcGDP,
   getLotes,
   getAnimalesConProblemas,
+  getCostaRicaNow,
+  formatCRDateOnly,
 } from "@/lib/data"
 import {
   XAxis,
@@ -51,9 +53,11 @@ export function PesajesModule() {
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [filterLote, setFilterLote] = useState<string>("todos")
   const [detailAnimalId, setDetailAnimalId] = useState<string | null>(null)
+  const today = formatCRDateOnly(getCostaRicaNow())
+
   const [newForm, setNewForm] = useState({
     animalId: "",
-    fecha: new Date().toISOString().split("T")[0],
+    fecha: today,
     peso: "",
     racionId: "",
   })
@@ -208,7 +212,7 @@ export function PesajesModule() {
       return
     }
     setShowNewDialog(false)
-    setNewForm({ animalId: "", fecha: new Date().toISOString().split("T")[0], peso: "", racionId: "" })
+    setNewForm({ animalId: "", fecha: today, peso: "", racionId: "" })
   }
 
   if (loading) {

@@ -795,6 +795,12 @@ export async function createVentaRecord(userId: string, venta: Omit<Venta, "id">
   }
   const { data, error } = await bovinos("ventas").insert(payload).select().single()
   if (error) throw error
+  // Marcar el animal como vendido
+  await bovinos("animales")
+    .update({ estado: "vendido" })
+    .eq("id", venta.animalId)
+    .eq("tenant_id", userId)
+
   return mapVenta(data as VentaRow)
 }
 
@@ -979,31 +985,42 @@ export function getAlertasDashboard(
   }
 }
 
+function pad2(value: number): string {
+  return value.toString().padStart(2, "0")
+}
+
 export function getCostaRicaNow(): Date {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Costa_Rica",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  })
-  const parts = formatter.formatToParts(new Date())
-  const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]))
-  const year = Number(lookup.year)
-  const month = Number(lookup.month)
-  const day = Number(lookup.day)
-  const hour = Number(lookup.hour)
-  const minute = Number(lookup.minute)
-  const second = Number(lookup.second)
-  return new Date(Date.UTC(year, month - 1, day, hour, minute, second))
+  // Calcula la fecha/hora exacta en CR sin aplicar DST (CR es UTC-6 todo el año)
+  const now = new Date()
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000
+  const crMs = utcMs - 6 * 60 * 60 * 1000
+  return new Date(crMs)
 }
 
 export function toCostaRicaDate(dateString: string): Date {
   if (!dateString) return getCostaRicaNow()
+  const isIsoWithTime = dateString.includes("T")
+  if (isIsoWithTime) return new Date(dateString)
+  // Fecha sin hora, fijar 00:00 en CR
   return new Date(`${dateString}T00:00:00-06:00`)
+}
+
+export function toCostaRicaISOString(date: Date): string {
+  // Usa los componentes ya ajustados a CR y retorna ISO con offset -06:00
+  const year = date.getUTCFullYear()
+  const month = pad2(date.getUTCMonth() + 1)
+  const day = pad2(date.getUTCDate())
+  const hour = pad2(date.getUTCHours())
+  const minute = pad2(date.getUTCMinutes())
+  const second = pad2(date.getUTCSeconds())
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}-06:00`
+}
+
+export function formatCRDateOnly(date: Date): string {
+  const year = date.getFullYear()
+  const month = pad2(date.getMonth() + 1)
+  const day = pad2(date.getDate())
+  return `${year}-${month}-${day}`
 }
 
 export function differenceInDays(start: Date, end: Date): number {

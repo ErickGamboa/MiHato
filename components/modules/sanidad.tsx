@@ -30,6 +30,9 @@ import {
   type EventoSanitario,
   type MedicamentoStock,
   getLotes,
+  getCostaRicaNow,
+  formatCRDateOnly,
+  toCostaRicaDate,
 } from "@/lib/data"
 import { useDataStore } from "@/hooks/use-data-store"
 import { getAnimalDisplayLabel } from "@/lib/utils"
@@ -40,9 +43,11 @@ const viasAplicacion = ["Subcutánea", "Intramuscular", "Oral", "Tópica", "Subc
 export function SanidadModule() {
   const { animales, eventos, medicamentos, loading, createEvento } = useDataStore()
   const [showNewEvento, setShowNewEvento] = useState(false)
+  const today = formatCRDateOnly(getCostaRicaNow())
+
   const [newEvento, setNewEvento] = useState({
     aplicarA: "animal" as "animal" | "lote",
-    animalId: "", lote: "", fecha: new Date().toISOString().split("T")[0],
+    animalId: "", lote: "", fecha: today,
     tipo: "vacuna", producto: "", dosis: "", viaAplicacion: "Subcutánea",
     diagnostico: "", observaciones: "", diasRetiro: "0",
   })
@@ -59,7 +64,7 @@ export function SanidadModule() {
 
   const animalesActivos = animales.filter((a) => a.estado === "activo")
   const lotes = getLotes(animales)
-  const hoy = new Date()
+  const hoy = toCostaRicaDate(today)
 
   // Retiros activos
   const retirosActivos = useMemo(() => {
@@ -118,7 +123,7 @@ export function SanidadModule() {
 
     const diasRetiro = Number.parseInt(newEvento.diasRetiro) || 0
     const fechaFinRetiro = diasRetiro > 0
-      ? new Date(new Date(newEvento.fecha).getTime() + diasRetiro * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+      ? formatCRDateOnly(new Date(new Date(newEvento.fecha).getTime() + diasRetiro * 24 * 60 * 60 * 1000))
       : undefined
 
     const ev = {

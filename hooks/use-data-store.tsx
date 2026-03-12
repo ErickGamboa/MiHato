@@ -21,6 +21,7 @@ import {
   getCostaRicaNow,
   isAfterDate,
   toCostaRicaDate,
+  toCostaRicaISOString,
   createAnimalRecord as createAnimalDb,
   updateAnimalRecord as updateAnimalDb,
   createPesajeRecord,
@@ -261,7 +262,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const createRacion = useCallback(
     async (input: CreateRacionInput) => {
-      const last = input.fechaInicio ? toCostaRicaDate(input.fechaInicio).toISOString() : getCostaRicaNow().toISOString()
+      const last = input.fechaInicio
+        ? toCostaRicaISOString(toCostaRicaDate(input.fechaInicio))
+        : toCostaRicaISOString(getCostaRicaNow())
       if (!userId) throw new Error("No hay usuario en sesión")
       const record = await createRacionRecord(userId, {
         ...input,
@@ -301,7 +304,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         motivoDesactivacion: activa ? null : "stock",
       }
       if (activa) {
-        payload.ultimoConsumo = getCostaRicaNow().toISOString()
+        payload.ultimoConsumo = toCostaRicaISOString(getCostaRicaNow())
       }
       if (!userId) throw new Error("No hay usuario en sesión")
       const record = await updateRacionRecord(userId, id, payload)
@@ -410,6 +413,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async (input: CreateVentaInput) => {
       if (!userId) throw new Error("No hay usuario en sesión")
       const record = await createVentaRecord(userId, input)
+      // aseguramos refresco para quitar al animal de activos
       await refresh()
       return record
     },
@@ -503,7 +507,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const animal = state.animales.find((a) => a.id === animalId)
       if (!animal) return
       if (animal.lote === loteDestino) return
-      const movementDate = fecha ?? getCostaRicaNow().toISOString()
+      const movementDate = fecha ?? toCostaRicaISOString(getCostaRicaNow())
       if (!userId) throw new Error("No hay usuario en sesión")
       await updateAnimalDb(userId, animalId, { lote: loteDestino })
       await createLotMovementRecord(userId, {

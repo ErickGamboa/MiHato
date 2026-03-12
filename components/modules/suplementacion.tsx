@@ -40,6 +40,7 @@ import {
   getCostaRicaNow,
   toCostaRicaDate,
   isAfterDate,
+  formatCRDateOnly,
 } from "@/lib/data"
 import { useDataStore } from "@/hooks/use-data-store"
 
@@ -72,10 +73,12 @@ export function SuplementacionModule() {
   })
   const [showNewRacion, setShowNewRacion] = useState(false)
   const [editingRacionId, setEditingRacionId] = useState<string | null>(null)
+  const today = formatCRDateOnly(getCostaRicaNow())
+
   const [racionForm, setRacionForm] = useState({
     nombre: "",
     lote: "",
-    fechaInicio: new Date().toISOString().split("T")[0],
+    fechaInicio: today,
     fechaFin: "",
     activa: true,
     insumos: [{ insumoId: "", kgPorAnimalDia: "" }],
@@ -291,7 +294,7 @@ export function SuplementacionModule() {
     setRacionForm({
       nombre: "",
       lote: "",
-      fechaInicio: new Date().toISOString().split("T")[0],
+      fechaInicio: today,
       fechaFin: "",
       activa: true,
       insumos: [{ insumoId: "", kgPorAnimalDia: "" }],
