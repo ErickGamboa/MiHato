@@ -372,9 +372,9 @@ export function PesajesModule() {
         <CardHeader>
           <CardTitle className="text-base">Detalle por Animal</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+      <CardContent className="p-0">
+        <div className="w-full overflow-x-auto">
+          <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Animal</TableHead>

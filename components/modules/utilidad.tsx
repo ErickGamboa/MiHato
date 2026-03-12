@@ -318,7 +318,7 @@ export function UtilidadModule() {
         </div>
         <Dialog open={showNewVenta} onOpenChange={setShowNewVenta}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="w-full gap-2 sm:w-auto">
               <Plus className="h-4 w-4" />
               Registrar salida
             </Button>
@@ -405,9 +405,9 @@ export function UtilidadModule() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardContent className="flex items-center gap-4 p-5">
+          <CardContent className="flex items-center gap-3 p-4 sm:p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
               <DollarSign className="h-6 w-6 text-primary" />
             </div>
@@ -418,7 +418,7 @@ export function UtilidadModule() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4 p-5">
+          <CardContent className="flex items-center gap-3 p-4 sm:p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
               <BarChart3 className="h-6 w-6 text-destructive" />
             </div>
@@ -429,7 +429,7 @@ export function UtilidadModule() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4 p-5">
+          <CardContent className="flex items-center gap-3 p-4 sm:p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
               <TrendingUp className="h-6 w-6 text-emerald-600" />
             </div>
@@ -445,7 +445,7 @@ export function UtilidadModule() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4 p-5">
+          <CardContent className="flex items-center gap-3 p-4 sm:p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-chart-2/20">
               <DollarSign className="h-6 w-6 text-chart-2" />
             </div>
@@ -458,7 +458,7 @@ export function UtilidadModule() {
       </div>
 
       {/* Filtros tabla */}
-      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-end sm:gap-3 sm:p-4">
         <div className="w-full sm:w-1/4">
           <Label>Lote</Label>
           <Input
@@ -491,8 +491,8 @@ export function UtilidadModule() {
           <CardTitle className="text-base">Detalle por Animal Vendido</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Animal</TableHead>
@@ -513,15 +513,15 @@ export function UtilidadModule() {
                   const secondary = `${getAnimalSecondaryLabel(vc.animal)} · ${vc.diasEnFinca}d`
                   return (
                     <TableRow key={vc.venta.id}>
-                      <TableCell>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{label}</p>
-                          <p className="text-xs text-muted-foreground">{secondary}</p>
-                        </div>
-                      </TableCell>
-                    <TableCell className="text-sm">{vc.venta.canalVenta}</TableCell>
+                    <TableCell>
+                      <div className="max-w-[140px] truncate">
+                        <p className="text-sm font-medium text-foreground truncate">{label}</p>
+                        <p className="text-xs text-muted-foreground truncate">{secondary}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[120px] truncate text-sm">{vc.venta.canalVenta}</TableCell>
                     <TableCell className="text-sm">{vc.animal.lote}</TableCell>
-                    <TableCell className="text-right font-mono">{vc.venta.pesoVenta} kg</TableCell>
+                    <TableCell className="text-right font-mono text-xs sm:text-sm">{vc.venta.pesoVenta} kg</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(vc.ingresoNeto)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(vc.costoTotal)}</TableCell>
                     <TableCell className="text-right">
@@ -557,10 +557,10 @@ export function UtilidadModule() {
               <div className="w-full sm:w-64">
                 <Label className="text-xs text-muted-foreground">Modo</Label>
                 <div className="mb-2 flex gap-2">
-                  <Button variant={filtroGraficoModo === "animal" ? "default" : "outline"} size="sm" onClick={() => setFiltroGraficoModo("animal")}>
+                  <Button variant={filtroGraficoModo === "animal" ? "default" : "outline"} size="sm" className="flex-1" onClick={() => setFiltroGraficoModo("animal")}> 
                     Animal
                   </Button>
-                  <Button variant={filtroGraficoModo === "lote" ? "default" : "outline"} size="sm" onClick={() => setFiltroGraficoModo("lote")}>
+                  <Button variant={filtroGraficoModo === "lote" ? "default" : "outline"} size="sm" className="flex-1" onClick={() => setFiltroGraficoModo("lote")}> 
                     Lote
                   </Button>
                 </div>
@@ -568,7 +568,7 @@ export function UtilidadModule() {
                   <Label className="text-xs text-muted-foreground">Selecciona</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" role="combobox" className="w-full justify-between">
+                      <Button variant="outline" role="combobox" className="w-full justify-between text-left">
                         {selectedGraficoId
                           ? filtroGraficoModo === "lote"
                             ? `Lote ${selectedGraficoId}`
@@ -579,21 +579,21 @@ export function UtilidadModule() {
                     </PopoverTrigger>
                     <PopoverContent className="p-0">
                       <Command>
-                        <CommandInput placeholder={filtroGraficoModo === "animal" ? "Buscar animal" : "Buscar lote"} />
+                    <CommandInput placeholder={filtroGraficoModo === "animal" ? "Buscar animal" : "Buscar lote"} className="h-9" />
                         <CommandList>
                           <CommandEmpty>No hay resultados</CommandEmpty>
                           <CommandGroup>
-                            {filtroGraficoModo === "lote"
-                              ? lotesVendidos.map((lote) => (
-                                  <CommandItem key={`lote-${lote}`} value={lote} onSelect={(v) => setFiltroGraficoId(v)}>
-                                    Lote {lote}
-                                  </CommandItem>
-                                ))
-                              : animalesUnicosVendidos.map((a) => (
-                                  <CommandItem key={a.id} value={a.id} onSelect={(v) => setFiltroGraficoId(v)}>
-                                    {a.label}
-                                  </CommandItem>
-                                ))}
+                      {filtroGraficoModo === "lote"
+                        ? lotesVendidos.map((lote) => (
+                            <CommandItem key={`lote-${lote}`} value={lote} onSelect={(v) => setFiltroGraficoId(v)}>
+                              Lote {lote}
+                            </CommandItem>
+                          ))
+                        : animalesUnicosVendidos.map((a) => (
+                            <CommandItem key={a.id} value={a.id} onSelect={(v) => setFiltroGraficoId(v)}>
+                              {a.label}
+                            </CommandItem>
+                          ))}
                           </CommandGroup>
                         </CommandList>
                       </Command>

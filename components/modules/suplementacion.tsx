@@ -712,8 +712,8 @@ export function SuplementacionModule() {
           <div className="flex flex-col gap-4">
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
+                <div className="w-full overflow-x-auto">
+                  <Table className="min-w-[600px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nombre</TableHead>

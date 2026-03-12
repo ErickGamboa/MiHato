@@ -333,9 +333,9 @@ export function SanidadModule() {
 
         <TabsContent value="eventos" className="mt-4">
           <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
+        <CardContent className="p-0">
+          <div className="w-full overflow-x-auto">
+            <Table className="min-w-[600px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Fecha</TableHead>
