@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 const lotesTable = () => supabaseAdmin.schema("bovinos").from("lotes")
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const url = new URL(request.url)
-  const idParam = params?.id ?? url.searchParams.get("id") ?? undefined
-  if (!idParam || idParam === "undefined") {
-    return NextResponse.json({ error: "ID de lote inválido" }, { status: 400 })
-  }
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const tenantId = request.headers.get("x-tenant-id") ?? undefined
+  if (!tenantId) return NextResponse.json({ error: "Falta x-tenant-id" }, { status: 401 })
   const body = await request.json()
   const updates: Record<string, unknown> = {}
   if (body?.nombre !== undefined) updates.nombre = String(body.nombre)
@@ -25,7 +24,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
   }
   if (body?.notas !== undefined) updates.notas = body.notas ? String(body.notas) : null
-  const { data, error } = await lotesTable().update(updates).eq("id", idParam).select().single()
+  const { data, error } = await lotesTable().update(updates).eq("id", id).eq("tenant_id", tenantId).select().single()
   if (error) {
     console.error("Error updating lote", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -33,13 +32,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   return NextResponse.json({ ...data, persisted: true })
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const url = new URL(request.url)
-  const idParam = params?.id ?? url.searchParams.get("id") ?? undefined
-  if (!idParam || idParam === "undefined") {
-    return NextResponse.json({ error: "ID de lote inválido" }, { status: 400 })
-  }
-  const { error } = await lotesTable().delete().eq("id", idParam)
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const tenantId = request.headers.get("x-tenant-id") ?? undefined
+  if (!tenantId) return NextResponse.json({ error: "Falta x-tenant-id" }, { status: 401 })
+  const { error } = await lotesTable().delete().eq("id", id).eq("tenant_id", tenantId)
   if (error) {
     console.error("Error deleting lote", error)
     return NextResponse.json({ error: error.message }, { status: 500 })

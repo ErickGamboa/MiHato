@@ -40,6 +40,7 @@ import {
   createLotMovementRecord,
   createChangeRecordEntry,
 } from "@/lib/data"
+import { supabaseBrowser } from "@/lib/supabase-browser"
 
 type CreateAnimalInput = Omit<Animal, "historialLotes" | "historialCambios" | "id"> & { id?: string }
 type CreatePesajeInput = Omit<Pesaje, "id"> & { id?: string }
@@ -111,14 +112,25 @@ const createEmptySnapshot = (): DataSnapshot => ({
 export function DataProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DataSnapshot>(createEmptySnapshot)
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
 
   const loadSnapshot = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true)
     try {
-      const snapshot = await fetchDataSnapshot()
+      const supabase = supabaseBrowser()
+      const { data } = await supabase.auth.getUser()
+      const uid = data.user?.id ?? null
+      setUserId(uid)
+      if (!uid) {
+        setState(createEmptySnapshot())
+        setLoading(false)
+        return
+      }
+
+      const snapshot = await fetchDataSnapshot(uid)
       const fallbackLots = snapshot.lotes
       try {
-        const response = await fetch("/api/lotes")
+        const response = await fetch("/api/lotes", { headers: { "x-tenant-id": uid } })
         if (response.ok) {
           const lotes = (await response.json()) as Lot[]
           const merged = [...lotes]
@@ -148,55 +160,61 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const createAnimal = useCallback(
     async (input: CreateAnimalInput) => {
-      const record = await createAnimalDb(input)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createAnimalDb(userId, input)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const updateAnimal = useCallback(
     async (id: string, updates: Partial<Animal>) => {
-      const record = await updateAnimalDb(id, updates)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await updateAnimalDb(userId, id, updates)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const createPesaje = useCallback(
     async (input: CreatePesajeInput) => {
-      const record = await createPesajeRecord(input)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createPesajeRecord(userId, input)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const createInsumo = useCallback(
     async (input: CreateInsumoInput) => {
-      const record = await createInsumoRecord(input)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createInsumoRecord(userId, input)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const updateInsumo = useCallback(
     async (id: string, updates: Partial<Insumo>) => {
-      const record = await updateInsumoRecord(id, updates)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await updateInsumoRecord(userId, id, updates)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const deleteInsumo = useCallback(
     async (id: string) => {
-      await deleteInsumoRecord(id)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      await deleteInsumoRecord(userId, id)
       await refresh()
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const adjustInsumoStock = useCallback(
@@ -204,43 +222,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const insumo = state.insumos.find((i) => i.id === id)
       if (!insumo) return
       const nuevoStock = Math.max(0, Math.round((insumo.stock + delta) * 100) / 100)
-      await updateInsumoRecord(id, { stock: nuevoStock })
+      if (!userId) throw new Error("No hay usuario en sesión")
+      await updateInsumoRecord(userId, id, { stock: nuevoStock })
       await refresh()
     },
-    [refresh, state.insumos]
+    [refresh, state.insumos, userId]
   )
 
   const createEvento = useCallback(
     async (input: CreateEventoInput) => {
-      const record = await createEventoRecord(input)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createEventoRecord(userId, input)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const createMedicamento = useCallback(
     async (med: MedicamentoStock) => {
-      const record = await createMedicamentoRecord(med)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createMedicamentoRecord(userId, med)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const updateMedicamento = useCallback(
     async (id: string, updates: Partial<MedicamentoStock>) => {
-      const record = await updateMedicamentoRecord(id, updates)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await updateMedicamentoRecord(userId, id, updates)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const createRacion = useCallback(
     async (input: CreateRacionInput) => {
       const last = input.fechaInicio ? toCostaRicaDate(input.fechaInicio).toISOString() : getCostaRicaNow().toISOString()
-      const record = await createRacionRecord({
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createRacionRecord(userId, {
         ...input,
         activa: input.activa ?? true,
         ultimoConsumo: input.ultimoConsumo ?? last,
@@ -249,24 +272,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const updateRacion = useCallback(
     async (id: string, updates: Partial<Racion>) => {
-      const record = await updateRacionRecord(id, updates)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await updateRacionRecord(userId, id, updates)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const deleteRacion = useCallback(
     async (id: string) => {
-      await deleteRacionRecord(id)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      await deleteRacionRecord(userId, id)
       await refresh()
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const toggleRacion = useCallback(
@@ -278,11 +303,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (activa) {
         payload.ultimoConsumo = getCostaRicaNow().toISOString()
       }
-      const record = await updateRacionRecord(id, payload)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await updateRacionRecord(userId, id, payload)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const autoConsumeRaciones = useCallback(
@@ -340,14 +366,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         racionUpdates.push({ id: racion.id, updates: { ultimoConsumo: now.toISOString(), motivoDesactivacion: null } })
       }
 
-      const insumoPromises = Array.from(insumoAdjustments.entries()).map(([insumoId, delta]) => {
-        const insumo = state.insumos.find((i) => i.id === insumoId)
-        if (!insumo) return null
-        const nuevo = Math.max(0, Math.round((insumo.stock + delta) * 100) / 100)
-        return updateInsumoRecord(insumoId, { stock: nuevo })
-      }).filter(Boolean) as Promise<Insumo>[]
+      const insumoPromises = Array.from(insumoAdjustments.entries())
+        .map(([insumoId, delta]) => {
+          const insumo = state.insumos.find((i) => i.id === insumoId)
+          if (!insumo || !userId) return null
+          const nuevo = Math.max(0, Math.round((insumo.stock + delta) * 100) / 100)
+          return updateInsumoRecord(userId, insumoId, { stock: nuevo })
+        })
+        .filter(Boolean) as Promise<Insumo>[]
 
-      const racionPromises = racionUpdates.map(({ id, updates }) => updateRacionRecord(id, updates))
+      const racionPromises = racionUpdates.map(({ id, updates }) => updateRacionRecord(userId!, id, updates))
 
       if (insumoPromises.length === 0 && racionPromises.length === 0) return
       await Promise.all([...insumoPromises, ...racionPromises])
@@ -361,44 +389,53 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const now = fechaReferencia ?? getCostaRicaNow()
       const expired = state.raciones.filter((racion) => racion.fechaFin && isAfterDate(now, toCostaRicaDate(racion.fechaFin)) && racion.activa)
       if (expired.length === 0) return
-      await Promise.all(expired.map((racion) => updateRacionRecord(racion.id, { activa: false, motivoDesactivacion: "fecha_fin" })))
+      if (!userId) throw new Error("No hay usuario en sesión")
+      await Promise.all(expired.map((racion) => updateRacionRecord(userId, racion.id, { activa: false, motivoDesactivacion: "fecha_fin" })))
       await refresh()
     },
-    [refresh, state.raciones]
+    [refresh, state.raciones, userId]
   )
 
   const createEscenario = useCallback(
     async (input: CreateEscenarioInput) => {
-      const record = await createEscenarioRecord(input)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createEscenarioRecord(userId, input)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const createVenta = useCallback(
     async (input: CreateVentaInput) => {
-      const record = await createVentaRecord(input)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createVentaRecord(userId, input)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const createCosto = useCallback(
     async (input: CreateCostoInput) => {
-      const record = await createCostoRecord(input)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createCostoRecord(userId, input)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const createLot = useCallback(
     async (input: CreateLotInput) => {
+      if (!userId) throw new Error("No hay usuario en sesión")
       const response = await fetch("/api/lotes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          ...(userId ? { "x-tenant-id": userId } : {}),
+        },
         body: JSON.stringify(input),
       })
       if (!response.ok) {
@@ -409,14 +446,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const updateLot = useCallback(
     async (id: string, updates: UpdateLotInput) => {
       const response = await fetch(`/api/lotes/${id}?id=${encodeURIComponent(id)}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(userId ? { "x-tenant-id": userId } : {}),
+        },
         body: JSON.stringify(updates),
       })
       if (!response.ok) {
@@ -435,10 +475,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!id || id === "undefined") {
         throw new Error("ID de lote inválido")
       }
-      const response = await fetch(`/api/lotes/${id}?id=${encodeURIComponent(id)}`, { method: "DELETE" })
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null)
-        throw new Error(payload?.error ?? "No se pudo eliminar el lote")
+      const response = await fetch(`/api/lotes/${id}?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: userId ? { "x-tenant-id": userId } : undefined,
+      })
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null)
+      throw new Error(payload?.error ?? "No se pudo eliminar el lote")
       }
       await refresh()
     },
@@ -447,11 +490,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const createLotMovement = useCallback(
     async (input: CreateLotMovementInput) => {
-      const record = await createLotMovementRecord(input)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createLotMovementRecord(userId, input)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const moveAnimalToLot = useCallback(
@@ -460,15 +504,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!animal) return
       if (animal.lote === loteDestino) return
       const movementDate = fecha ?? getCostaRicaNow().toISOString()
-      await updateAnimalDb(animalId, { lote: loteDestino })
-      await createLotMovementRecord({
+      if (!userId) throw new Error("No hay usuario en sesión")
+      await updateAnimalDb(userId, animalId, { lote: loteDestino })
+      await createLotMovementRecord(userId, {
         animalId,
         loteOrigen: animal.lote,
         loteDestino,
         motivo,
         fecha: movementDate,
       })
-      await createChangeRecordEntry({
+      await createChangeRecordEntry(userId, {
         animalId,
         fecha: movementDate,
         campo: "lote",
@@ -477,21 +522,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
       })
       await refresh()
     },
-    [refresh, state.animales]
+    [refresh, state.animales, userId]
   )
 
   const createChangeRecord = useCallback(
     async (input: CreateChangeRecordInput) => {
-      const record = await createChangeRecordEntry(input)
+      if (!userId) throw new Error("No hay usuario en sesión")
+      const record = await createChangeRecordEntry(userId, input)
       await refresh()
       return record
     },
-    [refresh]
+    [refresh, userId]
   )
 
   const isIdentifierDuplicated = useCallback(async (diio?: string, idSubasta?: string, excludeId?: string) => {
-    return isAnimalIdentifierDuplicated(diio, idSubasta, excludeId)
-  }, [])
+    if (!userId) throw new Error("No hay usuario en sesión")
+    return isAnimalIdentifierDuplicated(userId, diio, idSubasta, excludeId)
+  }, [userId])
 
   const value = useMemo<DataStoreValue>(
     () => ({

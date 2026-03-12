@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
 const lotesTable = () => supabaseAdmin.schema("bovinos").from("lotes")
 
-export async function GET() {
-  const { data, error } = await lotesTable().select("*").order("nombre")
+export async function GET(request: NextRequest) {
+  const tenantId = request.headers.get("x-tenant-id") ?? undefined
+  if (!tenantId) {
+    return NextResponse.json({ error: "Falta x-tenant-id" }, { status: 401 })
+  }
+  const { data, error } = await lotesTable().select("*").eq("tenant_id", tenantId).order("nombre")
   if (error) {
     console.error("Error fetching lotes", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -12,7 +17,11 @@ export async function GET() {
   return NextResponse.json((data ?? []).map((row) => ({ ...row, persisted: true })))
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const tenantId = request.headers.get("x-tenant-id") ?? undefined
+  if (!tenantId) {
+    return NextResponse.json({ error: "Falta x-tenant-id" }, { status: 401 })
+  }
   const body = await request.json()
   const nombre = (body?.nombre as string | undefined)?.trim()
   if (!nombre) {
@@ -31,6 +40,7 @@ export async function POST(request: Request) {
     descripcion: body?.descripcion ? String(body.descripcion) : null,
     capacidad,
     notas: body?.notas ? String(body.notas) : null,
+    tenant_id: tenantId,
   }
   const { data, error } = await lotesTable().insert(payload).select().single()
   if (error) {

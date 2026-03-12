@@ -2,7 +2,9 @@
 
 import React from "react"
 
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
+import { supabaseBrowser } from "@/lib/supabase-browser"
 import {
   LayoutDashboard,
   Beef,
@@ -13,6 +15,7 @@ import {
   DollarSign,
   Menu,
   X,
+  User,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -43,6 +46,31 @@ interface AppShellProps {
 
 export function AppShell({ activeModule, onModuleChange, children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [userEmail, setUserEmail] = useState<string>("")
+  const router = useRouter()
+  const supabase = supabaseBrowser()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.replace("/login")
+  }
+
+  useEffect(() => {
+    let mounted = true
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!mounted) return
+        setUserEmail(data.user?.email ?? "")
+      })
+      .catch(() => {
+        if (!mounted) return
+        setUserEmail("")
+      })
+    return () => {
+      mounted = false
+    }
+  }, [supabase])
 
   return (
     <div className="relative flex min-h-screen bg-background text-foreground">
@@ -108,8 +136,23 @@ export function AppShell({ activeModule, onModuleChange, children }: AppShellPro
           </ul>
         </nav>
 
-        <div className="border-t border-sidebar-border px-4 py-4">
-          <p className="text-xs text-sidebar-foreground/50">MiHato v1.0</p>
+        <div className="mt-auto border-t border-sidebar-border px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
+              {userEmail ? (
+                <span className="text-sm font-semibold">{userEmail.charAt(0).toUpperCase()}</span>
+              ) : (
+                <User className="h-4 w-4" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-sidebar-foreground">{userEmail || "Usuario"}</p>
+              <p className="truncate text-xs text-sidebar-foreground/60">Conectado</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="mt-3 w-full justify-center" onClick={handleLogout}>
+            Cerrar sesión
+          </Button>
         </div>
       </aside>
 
@@ -129,6 +172,8 @@ export function AppShell({ activeModule, onModuleChange, children }: AppShellPro
           <h2 className="text-base font-semibold text-foreground">
             {navItems.find((n) => n.key === activeModule)?.label}
           </h2>
+
+          <div className="ml-auto flex items-center gap-3" />
         </header>
 
         {/* Page content */}

@@ -1,147 +1,143 @@
-# AGENTS.md – MiHato Engineering Guide
+# AGENTS.md – Guía para agentes en MiHato
 
-## 1. Project Snapshot
-- Next.js 16 App Router + TypeScript + Tailwind CSS + shadcn/ui.
-- Supabase (schema `bovinos`) is the single backend; data flows through `lib/data.ts`.
-- UI copy and defaults target Costa Rican ranch management and use CRC currency.
-- Fonts are loaded via `next/font` (Inter + JetBrains Mono) and wired through CSS variables.
+## 1. Snapshot del proyecto
+- Next.js 16 (App Router) + TypeScript + Tailwind CSS + shadcn/ui.
+- Backend único: Supabase (esquema `bovinos`). Datos siempre filtrados por usuario/tenant.
+- Idioma y copy: español (CR); moneda: **Colón (CRC)**.
+- Fuentes vía `next/font` (Inter, JetBrains Mono) con variables CSS.
 
-## 2. Toolchain & Commands
+## 2. Comandos clave
 ```bash
-# Install deps (Node 20+ recommended for Next 16 compatibility)
+# Instalar dependencias
 npm install
 
-# Turbo dev server with HMR
+# Dev con Turbopack
 npm run dev
 
-# Production build + start
+# Build y arranque prod
 npm run build
 npm run start
 
-# ESLint (Next preset)
+# Lint (ESLint 9 plano, ver eslint.config.mjs)
+
 npm run lint
 
-# Type-check only
+# Chequeo de tipos
 npx tsc --noEmit
 
-# Tests (not yet scripted): add a script named "test" or run your chosen runner manually.
-# Once a test script exists, target a single test with:
-npm run test -- --testNamePattern "partial name"
+# Tests: no hay script aún. Cuando exista, un test puntual:
+npm run test -- --testNamePattern "regex"
 ```
-- Prefer `npm run lint && npm run build` before opening a PR; CI assumes this baseline.
-- Storybook is not configured; if you introduce it, document commands here.
 
-## 3. Repository Layout Highlights
+## 3. Estructura básica
 ```
-app/            # App Router routes, layouts, server components
-components/     # UI primitives (shadcn/ui fork), modules, shells
-hooks/          # Reusable client hooks
-lib/            # Supabase client, domain types, helpers (e.g., cn, data mappers)
-public/         # Static assets
-tailwind.config.ts / app/globals.css   # Design system tokens
+app/            Rutas App Router, layouts, server components
+components/     UI (shadcn/ui), módulos, shells
+hooks/          Hooks reutilizables
+lib/            Supabase client, tipos dominio, utilidades (cn, mapeos)
+public/         Assets estáticos
+tailwind.config.ts + app/globals.css  Tokens y tema
+eslint.config.mjs Config ESLint plano (Next 16)
 ```
-- Keep feature-specific state close to `app/(feature)` routes; avoid sprawling utils.
 
-## 4. Stack & Key Dependencies
-- Radix primitives + shadcn/ui scaffolding for interactive components.
-- Form stack: React Hook Form + Zod + `@hookform/resolvers`.
-- Visuals: Lucide icons, Embla carousel, recharts for charts.
-- Notifications use `sonner`; `cmdk` powers command palette.
-- Tailwind merges rely on `clsx` + `tailwind-merge` via `cn()` helper.
+## 4. Stack y dependencias
+- Radix + shadcn/ui para UI interactiva.
+- Formularios: React Hook Form + Zod + @hookform/resolvers.
+- Gráficos y UI: Lucide, Embla, recharts, sonner (toasts), cmdk (palette).
+- Supabase JS como client; schema fijo `bovinos`.
 
-## 5. Environment Setup
-- Required env vars (define in `.env.local`, never commit):
+## 5. Ambiente y llaves
+- `.env.local` (no versionar):
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
-- Access Supabase only through `lib/supabase.ts`; do not recreate clients per request.
-- For additional secrets (service role, webhook keys), add server-only variables and guard with `process.env` checks.
+  - Opcional server-only: `SUPABASE_SERVICE_ROLE_KEY` (solo en servidor para tareas admin; nunca en cliente).
+- Cliente público en `lib/supabase.ts`; cliente admin (si lo usas) debe vivir en módulo server-only.
 
-## 6. Git & Workflow Norms
-- Follow small, topic-focused branches; use imperative commit messages ("Add cattle trends card").
-- Never rewrite user history; avoid `git push --force` unless explicitly approved.
-- Run lint + type-check before staging; keep commits green.
-- Document migrations or schema expectations inside PR descriptions.
+## 6. Flujos de autenticación
+- Los usuarios se crean manualmente en Supabase Auth (no hay signup público).
+- Login: usa `supabase.auth.signInWithPassword` desde páginas `(auth)`; copy en español.
+- Sesión: obtener `auth.uid()` y propagarlo como `tenant_id` en todas las operaciones.
+- Cierre de sesión con `supabase.auth.signOut()`; manejo de errores con toasts.
 
-## 7. Imports & Module Boundaries
-- Use the `@/*` alias instead of relative `../../` paths.
-- Import order: React/Next → third-party → absolute internal modules → relative modules.
-- Type-only imports must use the `import type { ... } from` syntax; prefer `satisfies` over annotation when constraining objects.
-- Avoid default exports for shared components; named exports encourage tree-shaking.
+## 7. Aislamiento de datos y RLS
+- Todas las tablas del esquema `bovinos` deben tener columna `tenant_id`/`usuario_id`.
+- Consultas: siempre filtra por `tenant_id = userId` además de RLS.
+- RLS en tablas: políticas `using/with check tenant_id = auth.uid()` para select/insert/update/delete.
+- Operaciones internas sin RLS: usa cliente `service_role` solo en server actions/scripts y documenta su uso.
 
-## 8. TypeScript Practices
-- `tsconfig` runs in `strict` mode; do not suppress errors with `// @ts-ignore` unless documented.
-- Use interfaces for shape definitions consumed externally; use `type` for unions, mapped, or utility types.
-- Prefer discriminated unions for statusful entities (e.g., `AnimalStatus`).
-- Represent nullable DB fields as `value?: type` when they are optional in UI, but keep `null` when the DB requires it.
-- Use `ReadonlyArray` when the consumer should not mutate results.
+## 8. Workflow Git
+- Commits pequeños, imperativos: "Add cattle trends card".
+- No reescribir historia ajena; evita `--force` salvo instrucción explícita.
+- Ejecuta `npm run lint` y `npm run build` antes de abrir PR.
 
-## 9. React & Component Patterns
-- Components default to server components; add `'use client'` only when hooks/events are needed.
-- Wrap interactive primitives with `React.forwardRef` and set `displayName` for devtools clarity.
-- Accept `className` + `...props` consistently; merge classes via `cn` before passing down.
-- When fetching in server components, perform Supabase calls directly; in client components, prefer RPC endpoints or use the Supabase JS client sparingly.
-- Keep state colocated; avoid cross-component singletons unless using Context.
+## 9. Importaciones
+- Usar alias `@/*`, evita rutas `../../` largas.
+- Orden: React/Next → terceros → internos absolutos → relativos.
+- Tipos con `import type { ... }`; prefiere `satisfies` para objetos literales.
+- Exporta con named exports en componentes compartidos (evita default salvo páginas/routes).
 
-## 10. Styling & UI System
-- Tailwind tokens live in `app/globals.css`; only extend colors in `tailwind.config.ts` using CSS variables.
-- Always compose classes with `cn()`; never manually concatenate strings with falsy checks.
-- Respect light background aesthetic: neutrals + lush greens; avoid introducing new palette values unless added to CSS variables.
-- Use `cva` for variant-heavy components; default variant should match Figma specs (rounded corners per `--radius`).
-- Add responsive considerations (stacking, scroll areas) for each new layout.
+## 10. TypeScript
+- `strict` activo; no usar `// @ts-ignore` salvo justificación concreta.
+- Interfaces para contratos externos; `type` para uniones/mapeos utilitarios.
+- Prefiere `readonly`/`ReadonlyArray` cuando no se muta.
+- Representa campos opcionales DB como `?:` en UI, conserva `null` si el backend lo requiere.
 
-## 11. Forms, Data Entry & Validation
-- Use Zod schemas for every React Hook Form instance; derive TS types from schemas (`z.infer`).
-- Display validation feedback inline plus toast summary for failed submissions.
-- Persist numeric inputs as numbers (parse before storing); centralize currency formatting via dedicated helpers.
-- Keep React Hook Form controllers close to input components to avoid prop drilling.
+## 11. Patrones React
+- Server components por defecto; añade `'use client'` solo si hay estado/efectos.
+- `forwardRef` + `displayName` en componentes interactivos.
+- Props estándar: `className` + `...props`; fusiona clases con `cn()`.
+- Evita llamadas impuras en render (no `Math.random` directo); memoiza solo cuando sea estable.
 
-## 12. Data Access & Supabase Rules
-- All queries use `supabase.schema('bovinos').from('<table>')`; never omit the schema.
-- `lib/data.ts` maps snake_case rows into camelCase domain objects; extend these mapping helpers instead of rewriting conversions.
-- When writing, convert camelCase back to snake_case (e.g., `animalId` → `animal_id`).
-- Handle Supabase errors explicitly: inspect `{ error }`, log with context, show user-friendly toast.
-- Batch reads when possible using `Promise.all`; avoid sequential awaits that hit Supabase individually per record.
+## 12. Estilos y diseño
+- Tema en `app/globals.css`; extiende colores vía CSS variables en `tailwind.config.ts`.
+- Usa `cn()` siempre para clases condicionales; evita concatenar manualmente.
+- `cva` para variantes; respeta `--radius` y estética clara (ver paleta verde/neutral).
+- Asegura responsividad y scroll seguro en móviles.
 
-## 13. Currency, Locale & Copy
-- Display all amounts in **Costa Rican Colón (CRC)** with the ₡ symbol and no USD fallback.
-- Use a single formatter (e.g., `Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' })`).
-- When storing decimals, keep cents precision; avoid binary floats for totals.
-- Date strings default to ISO; format for UI using `date-fns` with Spanish locale.
+## 13. Formularios y validación
+- React Hook Form + Zod; deriva tipos con `z.infer`.
+- Errores en línea + toast resumen; números se parsean antes de persistir.
+- Mantén controllers cerca de inputs para evitar prop drilling excesivo.
 
-## 14. Error Handling & Messaging
-- Wrap async server actions in try/catch; bubble meaningful `Error` objects upward.
-- Client errors: show toast via `sonner`, highlight problem fields, and prefer Spanish-language copy.
-- Log sensitive data only on the server; redact animal IDs when sharing logs publicly.
-- Fail fast when required env keys are missing (throw during module init with explanatory message).
+## 14. Datos y Supabase
+- Siempre `supabase.schema('bovinos').from('<tabla>')`.
+- `lib/data.ts` mapea snake_case ↔ camelCase; extiende mapeos allí.
+- Escrituras: convierte camelCase a snake_case (ej. `animalId` → `animal_id`).
+- Manejo de errores: verifica `{ error }`, log con contexto, muestra toast amigable.
+- Batching: usa `Promise.all` para evitar llamadas secuenciales innecesarias.
 
-## 15. Testing & Quality Gates
-- Testing scaffold is not present; if you add one, colocate `*.test.ts(x)` beside source or under `__tests__/`.
-- Prefer Vitest or Jest for unit tests; configure a `test` npm script before committing test files.
-- Mock Supabase via dependency injection or `vi.mock('@/lib/supabase')`; never hit live services in unit tests.
-- When running a single test, rely on `npm run test -- --testNamePattern "regex"` (Vitest/Jest both honor it).
-- Snapshot tests should include currency-specific expectations to catch CRC regressions.
+## 15. Moneda, fechas y copy
+- Mostrar siempre CRC con `Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' })`.
+- Fechas ISO; formatear para UI con date-fns (v3) y locale español.
+- Textos en español; evita anglicismos en UI final.
 
-## 16. Accessibility, Performance & UX
-- Always set `lang="es"` (already configured in `app/layout.tsx`; keep it intact).
-- Use semantic HTML landmarks, ARIA labels for controls derived from shadcn/ui, and ensure focus states meet contrast ratios.
-- Prefer CSS grid/flex for layout; avoid absolute positioning unless animating overlays.
-- Lazy-load heavyweight charts or carousels using dynamic imports with `ssr: false` only when necessary.
-- Animate meaningfully (e.g., `accordion-down` keyframes already defined); avoid gratuitous animation when showing data-critical screens.
-- Keep bundle lean (tree-shake Lucide imports), use Suspense plus skeletons for heavy data, memoize derived state, and default to Node runtime unless the code is SSR-safe at the edge.
+## 16. Accesibilidad y rendimiento
+- `lang="es"` en `app/layout.tsx`; mantenerlo.
+- Landmarks semánticos, ARIA en controles shadcn/ui; estados de foco visibles.
+- Lazy/dynamic import para gráficos pesados o carruseles cuando sea necesario.
+- Usa Suspense + skeletons para datos pesados; memoiza cálculos costosos con deps correctas.
 
-## 18. Release & Verification Checklist
-1. `npm run lint`
-2. `npx tsc --noEmit`
-3. `npm run build`
-4. Manual smoke test of critical flows (animal onboarding, pesaje logging, venta recording).
-5. Confirm CRC formatting and Spanish copy on the touched UI.
+## 17. Linting y calidad
+- ESLint 9 con flat config en `eslint.config.mjs` (extiende `eslint-config-next`).
+- Reglas de hooks: corrige deps de `useEffect/useMemo`; evita efectos con `setState` sin guardas.
+- Warnings de React Compiler: al ajustar deps, asegura estabilidad de referencias.
+- Antes de PR: `npm run lint`, `npx tsc --noEmit`, `npm run build`.
 
-## 19. Cursor / Copilot Rules
-- `.cursor/rules` and `.cursorrules` are absent; there are no Cursor-specific directives today.
-- `.github/copilot-instructions.md` is absent; follow the guidelines in this document instead.
+## 18. Testing (pendiente)
+- Aún no hay runner configurado. Preferido: Vitest o Jest.
+- Ubicación sugerida: junto al código (`*.test.tsx`) o `__tests__/`.
+- Mock de Supabase vía `vi.mock('@/lib/supabase')`; no golpear servicios reales.
+- Un solo test: `npm run test -- --testNamePattern "regex"` cuando exista script.
 
-## 20. When Adding New Capabilities
-- Extend `lib/data.ts` for any new table before using it in UI; update mapping tables to keep camelCase ↔ snake_case parity.
-- Document new env vars at the top of this file and in README/PR descriptions.
-- Update Tailwind tokens + CSS variables together to keep shadcn/ui theme consistent.
-- If you introduce a new global provider (context, theme, query client), register it in `app/layout.tsx`.
+## 19. Cursor / Copilot
+- No hay reglas en `.cursor/rules/` ni `.cursorrules`.
+- No existe `.github/copilot-instructions.md`. Sigue este archivo como referencia.
+
+## 20. Nuevas capacidades
+- Nuevas tablas: añade `tenant_id`, políticas RLS y mapeos en `lib/data.ts`.
+- Nuevos providers globales: registrar en `app/layout.tsx`.
+- Nuevas env vars: documentar aquí y en README/PR.
+
+## 21. Propiedad y soporte
+- Este archivo es la fuente para agentes. Mantén ~150 líneas y actualiza al cambiar tooling (lint, auth, RLS, comandos).
+- Cuando uses cliente admin (service role), deja constancia en la descripción del cambio/PR.

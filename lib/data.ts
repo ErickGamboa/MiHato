@@ -197,6 +197,7 @@ type AnimalRow = {
   comision: number
   precio_total: number
   estado: AnimalStatus
+  tenant_id: string
 }
 
 type PesajeRow = {
@@ -206,6 +207,7 @@ type PesajeRow = {
   peso: number
   suplementacion: string | null
   racion_id: string | null
+  tenant_id: string
 }
 
 type LotRow = {
@@ -214,6 +216,7 @@ type LotRow = {
   descripcion: string | null
   capacidad: number | null
   notas: string | null
+  tenant_id: string
 }
 
 type InsumoRow = {
@@ -224,6 +227,7 @@ type InsumoRow = {
   costo_por_kg: number
   stock: number
   unidad: string
+  tenant_id: string
 }
 
 type RacionRow = {
@@ -236,6 +240,7 @@ type RacionRow = {
   ultimo_consumo: string | null
   motivo_desactivacion: string | null
   insumos: unknown
+  tenant_id: string
 }
 
 type EventoSanitarioRow = {
@@ -251,6 +256,7 @@ type EventoSanitarioRow = {
   observaciones: string | null
   dias_retiro: number | null
   fecha_fin_retiro: string | null
+  tenant_id: string
 }
 
 type MedicamentoRow = {
@@ -259,6 +265,7 @@ type MedicamentoRow = {
   stock: number
   unidad: string
   fecha_vencimiento: string
+  tenant_id: string
 }
 
 type EscenarioRow = {
@@ -269,6 +276,7 @@ type EscenarioRow = {
   gdp_esperado: number
   costo_diario: number
   precio_venta_esperado: number
+  tenant_id: string
 }
 
 type VentaRow = {
@@ -280,6 +288,7 @@ type VentaRow = {
   precio_por_kg: number
   costos_salida: number
   merma: number
+  tenant_id: string
 }
 
 type CostoRow = {
@@ -290,6 +299,7 @@ type CostoRow = {
   descripcion: string
   monto: number
   fecha: string
+  tenant_id: string
 }
 
 type LotMovementRow = {
@@ -299,6 +309,7 @@ type LotMovementRow = {
   lote_origen: string
   lote_destino: string
   motivo: string
+  tenant_id: string
 }
 
 type ChangeRecordRow = {
@@ -308,6 +319,7 @@ type ChangeRecordRow = {
   campo: string
   valor_anterior: string
   valor_nuevo: string
+  tenant_id: string
 }
 
 function mapAnimal(row: AnimalRow): Animal {
@@ -476,32 +488,32 @@ function mapChangeRecord(row: ChangeRecordRow): ChangeRecord {
   }
 }
 
-async function fetchTable<T>(table: string): Promise<T[]> {
-  const { data, error } = await bovinos(table).select("*")
+async function fetchTable<T>(table: string, userId: string): Promise<T[]> {
+  const { data, error } = await bovinos(table).select("*").eq("tenant_id", userId)
   if (error) throw error
   return (data as T[]) ?? []
 }
 
-export async function fetchDataSnapshot(): Promise<DataSnapshot> {
+export async function fetchDataSnapshot(userId: string): Promise<DataSnapshot> {
   try {
     const [animalRows, pesajeRows, insumoRows, racionRows, eventoRows, medicamentoRows, escenarioRows, ventaRows, costoRows, lotMovementRows, changeRows] =
       await Promise.all([
-        fetchTable<AnimalRow>("animales"),
-        fetchTable<PesajeRow>("pesajes"),
-        fetchTable<InsumoRow>("insumos"),
-        fetchTable<RacionRow>("raciones"),
-        fetchTable<EventoSanitarioRow>("eventos_sanitarios"),
-        fetchTable<MedicamentoRow>("medicamentos"),
-        fetchTable<EscenarioRow>("escenarios"),
-        fetchTable<VentaRow>("ventas"),
-        fetchTable<CostoRow>("costos"),
-        fetchTable<LotMovementRow>("lot_movements"),
-        fetchTable<ChangeRecordRow>("change_records"),
+        fetchTable<AnimalRow>("animales", userId),
+        fetchTable<PesajeRow>("pesajes", userId),
+        fetchTable<InsumoRow>("insumos", userId),
+        fetchTable<RacionRow>("raciones", userId),
+        fetchTable<EventoSanitarioRow>("eventos_sanitarios", userId),
+        fetchTable<MedicamentoRow>("medicamentos", userId),
+        fetchTable<EscenarioRow>("escenarios", userId),
+        fetchTable<VentaRow>("ventas", userId),
+        fetchTable<CostoRow>("costos", userId),
+        fetchTable<LotMovementRow>("lot_movements", userId),
+        fetchTable<ChangeRecordRow>("change_records", userId),
       ])
 
     let lotDefinitionRows: LotRow[] = []
     try {
-      lotDefinitionRows = await fetchTable<LotRow>("lotes")
+      lotDefinitionRows = await fetchTable<LotRow>("lotes", userId)
     } catch (error) {
       console.warn("Could not load lotes table, falling back to derived lots", error)
     }
@@ -543,7 +555,7 @@ export async function fetchDataSnapshot(): Promise<DataSnapshot> {
 
 export type AnimalInsert = Omit<Animal, "historialLotes" | "historialCambios" | "id"> & { id?: string }
 
-function toAnimalRow(animal: AnimalInsert): AnimalRow {
+function toAnimalRow(animal: AnimalInsert, userId: string): AnimalRow {
   return {
     id: animal.id ?? crypto.randomUUID(),
     diio: animal.diio ?? null,
@@ -563,17 +575,18 @@ function toAnimalRow(animal: AnimalInsert): AnimalRow {
     comision: animal.comision,
     precio_total: animal.precioTotal,
     estado: animal.estado,
+    tenant_id: userId,
   }
 }
 
-export async function createAnimalRecord(animal: AnimalInsert): Promise<Animal> {
-  const row = toAnimalRow(animal)
+export async function createAnimalRecord(userId: string, animal: AnimalInsert): Promise<Animal> {
+  const row = toAnimalRow(animal, userId)
   const { data, error } = await bovinos("animales").insert(row).select().single()
   if (error) throw error
   return mapAnimal(data as AnimalRow)
 }
 
-export async function updateAnimalRecord(id: string, updates: Partial<AnimalInsert>): Promise<Animal> {
+export async function updateAnimalRecord(userId: string, id: string, updates: Partial<AnimalInsert>): Promise<Animal> {
   const updatePayload: Record<string, unknown> = {}
   if ("diio" in updates) updatePayload.diio = updates.diio ?? null
   if ("idSubasta" in updates) updatePayload.id_subasta = updates.idSubasta ?? null
@@ -592,14 +605,14 @@ export async function updateAnimalRecord(id: string, updates: Partial<AnimalInse
   if ("comision" in updates) updatePayload.comision = updates.comision
   if ("precioTotal" in updates) updatePayload.precio_total = updates.precioTotal
   if ("estado" in updates) updatePayload.estado = updates.estado
-  const { data, error } = await bovinos("animales").update(updatePayload).eq("id", id).select().single()
+  const { data, error } = await bovinos("animales").update(updatePayload).eq("id", id).eq("tenant_id", userId).select().single()
   if (error) throw error
   return mapAnimal(data as AnimalRow)
 }
 
-export async function isAnimalIdentifierDuplicated(diio?: string, idSubasta?: string, excludeId?: string): Promise<boolean> {
+export async function isAnimalIdentifierDuplicated(userId: string, diio?: string, idSubasta?: string, excludeId?: string): Promise<boolean> {
   if (!diio && !idSubasta) return false
-  let query = bovinos("animales").select("id", { count: "exact" })
+  let query = bovinos("animales").select("id", { count: "exact" }).eq("tenant_id", userId)
   if (diio) query = query.eq("diio", diio)
   if (idSubasta) query = query.eq("id_subasta", idSubasta)
   if (excludeId) query = query.neq("id", excludeId)
@@ -608,7 +621,7 @@ export async function isAnimalIdentifierDuplicated(diio?: string, idSubasta?: st
   return (count ?? 0) > 0
 }
 
-export async function createPesajeRecord(pesaje: {
+export async function createPesajeRecord(userId: string, pesaje: {
   animalId: string
   fecha: string
   peso: number
@@ -616,6 +629,7 @@ export async function createPesajeRecord(pesaje: {
   racionId?: string
 }): Promise<Pesaje> {
   const payload = {
+    tenant_id: userId,
     animal_id: pesaje.animalId,
     fecha: pesaje.fecha,
     peso: pesaje.peso,
@@ -627,7 +641,7 @@ export async function createPesajeRecord(pesaje: {
   return mapPesaje(data as PesajeRow)
 }
 
-export async function createInsumoRecord(insumo: Omit<Insumo, "id"> & { id?: string }): Promise<Insumo> {
+export async function createInsumoRecord(userId: string, insumo: Omit<Insumo, "id"> & { id?: string }): Promise<Insumo> {
   const payload = {
     id: insumo.id ?? crypto.randomUUID(),
     nombre: insumo.nombre,
@@ -636,13 +650,14 @@ export async function createInsumoRecord(insumo: Omit<Insumo, "id"> & { id?: str
     costo_por_kg: insumo.costoPorKg,
     stock: insumo.stock,
     unidad: insumo.unidad,
+    tenant_id: userId,
   }
   const { data, error } = await bovinos("insumos").insert(payload).select().single()
   if (error) throw error
   return mapInsumo(data as InsumoRow)
 }
 
-export async function updateInsumoRecord(id: string, updates: Partial<Insumo>): Promise<Insumo> {
+export async function updateInsumoRecord(userId: string, id: string, updates: Partial<Insumo>): Promise<Insumo> {
   const payload: Record<string, unknown> = {}
   if ("nombre" in updates) payload.nombre = updates.nombre
   if ("precio" in updates) payload.precio = updates.precio
@@ -650,17 +665,17 @@ export async function updateInsumoRecord(id: string, updates: Partial<Insumo>): 
   if ("costoPorKg" in updates) payload.costo_por_kg = updates.costoPorKg
   if ("stock" in updates) payload.stock = updates.stock
   if ("unidad" in updates) payload.unidad = updates.unidad
-  const { data, error } = await bovinos("insumos").update(payload).eq("id", id).select().single()
+  const { data, error } = await bovinos("insumos").update(payload).eq("id", id).eq("tenant_id", userId).select().single()
   if (error) throw error
   return mapInsumo(data as InsumoRow)
 }
 
-export async function deleteInsumoRecord(id: string): Promise<void> {
-  const { error } = await bovinos("insumos").delete().eq("id", id)
+export async function deleteInsumoRecord(userId: string, id: string): Promise<void> {
+  const { error } = await bovinos("insumos").delete().eq("id", id).eq("tenant_id", userId)
   if (error) throw error
 }
 
-function racionToRow(racion: Racion): RacionRow {
+function racionToRow(racion: Racion, userId: string): RacionRow {
   return {
     id: racion.id,
     nombre: racion.nombre,
@@ -671,17 +686,18 @@ function racionToRow(racion: Racion): RacionRow {
     ultimo_consumo: racion.ultimoConsumo ?? null,
     motivo_desactivacion: racion.motivoDesactivacion ?? null,
     insumos: racion.insumos.map((ri) => ({ insumo_id: ri.insumoId, kg_por_animal_dia: ri.kgPorAnimalDia })),
+    tenant_id: userId,
   }
 }
 
-export async function createRacionRecord(racion: Omit<Racion, "id"> & { id?: string }): Promise<Racion> {
-  const payload = racionToRow({ ...racion, id: racion.id ?? crypto.randomUUID() } as Racion)
+export async function createRacionRecord(userId: string, racion: Omit<Racion, "id"> & { id?: string }): Promise<Racion> {
+  const payload = racionToRow({ ...racion, id: racion.id ?? crypto.randomUUID() } as Racion, userId)
   const { data, error } = await bovinos("raciones").insert(payload).select().single()
   if (error) throw error
   return mapRacion(data as RacionRow)
 }
 
-export async function updateRacionRecord(id: string, updates: Partial<Racion>): Promise<Racion> {
+export async function updateRacionRecord(userId: string, id: string, updates: Partial<Racion>): Promise<Racion> {
   const payload: Record<string, unknown> = {}
   if ("nombre" in updates) payload.nombre = updates.nombre
   if ("lote" in updates) payload.lote = updates.lote
@@ -693,17 +709,17 @@ export async function updateRacionRecord(id: string, updates: Partial<Racion>): 
   if (updates.insumos) {
     payload.insumos = updates.insumos.map((ri) => ({ insumo_id: ri.insumoId, kg_por_animal_dia: ri.kgPorAnimalDia }))
   }
-  const { data, error } = await bovinos("raciones").update(payload).eq("id", id).select().single()
+  const { data, error } = await bovinos("raciones").update(payload).eq("id", id).eq("tenant_id", userId).select().single()
   if (error) throw error
   return mapRacion(data as RacionRow)
 }
 
-export async function deleteRacionRecord(id: string): Promise<void> {
-  const { error } = await bovinos("raciones").delete().eq("id", id)
+export async function deleteRacionRecord(userId: string, id: string): Promise<void> {
+  const { error } = await bovinos("raciones").delete().eq("id", id).eq("tenant_id", userId)
   if (error) throw error
 }
 
-export async function createEventoRecord(evento: Omit<EventoSanitario, "id"> & { id?: string }): Promise<EventoSanitario> {
+export async function createEventoRecord(userId: string, evento: Omit<EventoSanitario, "id"> & { id?: string }): Promise<EventoSanitario> {
   const payload = {
     id: evento.id ?? crypto.randomUUID(),
     animal_id: evento.animalId ?? null,
@@ -717,37 +733,39 @@ export async function createEventoRecord(evento: Omit<EventoSanitario, "id"> & {
     observaciones: evento.observaciones ?? null,
     dias_retiro: evento.diasRetiro ?? null,
     fecha_fin_retiro: evento.fechaFinRetiro ?? null,
+    tenant_id: userId,
   }
   const { data, error } = await bovinos("eventos_sanitarios").insert(payload).select().single()
   if (error) throw error
   return mapEvento(data as EventoSanitarioRow)
 }
 
-export async function createMedicamentoRecord(med: Omit<MedicamentoStock, "id"> & { id?: string }): Promise<MedicamentoStock> {
+export async function createMedicamentoRecord(userId: string, med: Omit<MedicamentoStock, "id"> & { id?: string }): Promise<MedicamentoStock> {
   const payload = {
     id: med.id ?? crypto.randomUUID(),
     nombre: med.nombre,
     stock: med.stock,
     unidad: med.unidad,
     fecha_vencimiento: med.fechaVencimiento,
+    tenant_id: userId,
   }
   const { data, error } = await bovinos("medicamentos").insert(payload).select().single()
   if (error) throw error
   return mapMedicamento(data as MedicamentoRow)
 }
 
-export async function updateMedicamentoRecord(id: string, updates: Partial<MedicamentoStock>): Promise<MedicamentoStock> {
+export async function updateMedicamentoRecord(userId: string, id: string, updates: Partial<MedicamentoStock>): Promise<MedicamentoStock> {
   const payload: Record<string, unknown> = {}
   if ("nombre" in updates) payload.nombre = updates.nombre
   if ("stock" in updates) payload.stock = updates.stock
   if ("unidad" in updates) payload.unidad = updates.unidad
   if ("fechaVencimiento" in updates) payload.fecha_vencimiento = updates.fechaVencimiento
-  const { data, error } = await bovinos("medicamentos").update(payload).eq("id", id).select().single()
+  const { data, error } = await bovinos("medicamentos").update(payload).eq("id", id).eq("tenant_id", userId).select().single()
   if (error) throw error
   return mapMedicamento(data as MedicamentoRow)
 }
 
-export async function createEscenarioRecord(esc: Omit<Escenario, "id"> & { id?: string }): Promise<Escenario> {
+export async function createEscenarioRecord(userId: string, esc: Omit<Escenario, "id"> & { id?: string }): Promise<Escenario> {
   const payload = {
     id: esc.id ?? crypto.randomUUID(),
     nombre: esc.nombre,
@@ -756,13 +774,14 @@ export async function createEscenarioRecord(esc: Omit<Escenario, "id"> & { id?: 
     gdp_esperado: esc.gdpEsperado,
     costo_diario: esc.costoDiario,
     precio_venta_esperado: esc.precioVentaEsperado,
+    tenant_id: userId,
   }
   const { data, error } = await bovinos("escenarios").insert(payload).select().single()
   if (error) throw error
   return mapEscenario(data as EscenarioRow)
 }
 
-export async function createVentaRecord(venta: Omit<Venta, "id"> & { id?: string }): Promise<Venta> {
+export async function createVentaRecord(userId: string, venta: Omit<Venta, "id"> & { id?: string }): Promise<Venta> {
   const payload = {
     id: venta.id ?? crypto.randomUUID(),
     animal_id: venta.animalId,
@@ -772,13 +791,14 @@ export async function createVentaRecord(venta: Omit<Venta, "id"> & { id?: string
     precio_por_kg: venta.precioPorKg,
     costos_salida: venta.costosSalida,
     merma: venta.merma,
+    tenant_id: userId,
   }
   const { data, error } = await bovinos("ventas").insert(payload).select().single()
   if (error) throw error
   return mapVenta(data as VentaRow)
 }
 
-export async function createCostoRecord(costo: Omit<Costo, "id"> & { id?: string }): Promise<Costo> {
+export async function createCostoRecord(userId: string, costo: Omit<Costo, "id"> & { id?: string }): Promise<Costo> {
   const payload = {
     id: costo.id ?? crypto.randomUUID(),
     animal_id: costo.animalId ?? null,
@@ -787,13 +807,14 @@ export async function createCostoRecord(costo: Omit<Costo, "id"> & { id?: string
     descripcion: costo.descripcion,
     monto: costo.monto,
     fecha: costo.fecha,
+    tenant_id: userId,
   }
   const { data, error } = await bovinos("costos").insert(payload).select().single()
   if (error) throw error
   return mapCosto(data as CostoRow)
 }
 
-export async function createLotMovementRecord(movement: Omit<LotMovement, "id"> & { id?: string }): Promise<LotMovement> {
+export async function createLotMovementRecord(userId: string, movement: Omit<LotMovement, "id"> & { id?: string }): Promise<LotMovement> {
   const payload = {
     id: movement.id ?? crypto.randomUUID(),
     animal_id: movement.animalId ?? null,
@@ -801,13 +822,14 @@ export async function createLotMovementRecord(movement: Omit<LotMovement, "id"> 
     lote_origen: movement.loteOrigen,
     lote_destino: movement.loteDestino,
     motivo: movement.motivo,
+    tenant_id: userId,
   }
   const { data, error } = await bovinos("lot_movements").insert(payload).select().single()
   if (error) throw error
   return mapLotMovement(data as LotMovementRow)
 }
 
-export async function createChangeRecordEntry(entry: Omit<ChangeRecord, "id"> & { id?: string }): Promise<ChangeRecord> {
+export async function createChangeRecordEntry(userId: string, entry: Omit<ChangeRecord, "id"> & { id?: string }): Promise<ChangeRecord> {
   const payload = {
     id: entry.id ?? crypto.randomUUID(),
     animal_id: entry.animalId ?? null,
@@ -815,6 +837,7 @@ export async function createChangeRecordEntry(entry: Omit<ChangeRecord, "id"> & 
     campo: entry.campo,
     valor_anterior: entry.valorAnterior,
     valor_nuevo: entry.valorNuevo,
+    tenant_id: userId,
   }
   const { data, error } = await bovinos("change_records").insert(payload).select().single()
   if (error) throw error
