@@ -26,7 +26,7 @@ export default function LoginPage() {
     setLoading(false)
 
     if (signInError) {
-      setError(signInError.message || "No se pudo iniciar sesión")
+      setError("Credenciales inválidos")
       return
     }
 
@@ -73,9 +73,7 @@ export default function LoginPage() {
           </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          {errorParam === "no-autorizado" ? (
-            <p className="text-sm text-destructive">Tu cuenta no está autorizada. Usa un correo que inicie con mihato.</p>
-          ) : null}
+          {errorParam ? <p className="text-sm text-destructive">Credenciales inválidos</p> : null}
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Ingresando..." : "Entrar"}
