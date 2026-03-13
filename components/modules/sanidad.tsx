@@ -34,6 +34,7 @@ import {
   formatCRDateOnly,
   toCostaRicaDate,
 } from "@/lib/data"
+import { useFeedback } from "@/hooks/use-feedback"
 import { useDataStore } from "@/hooks/use-data-store"
 import { getAnimalDisplayLabel } from "@/lib/utils"
 
@@ -42,6 +43,7 @@ const viasAplicacion = ["Subcutánea", "Intramuscular", "Oral", "Tópica", "Subc
 
 export function SanidadModule() {
   const { animales, eventos, medicamentos, loading, createEvento } = useDataStore()
+  const { error, notify } = useFeedback()
   const [showNewEvento, setShowNewEvento] = useState(false)
   const today = formatCRDateOnly(getCostaRicaNow())
 
@@ -109,15 +111,15 @@ export function SanidadModule() {
 
   const handleCreateEvento = async () => {
     if (!newEvento.fecha || !newEvento.producto || !newEvento.dosis) {
-      alert("Los campos fecha, producto y dosis son obligatorios.")
+      error("Campos obligatorios", "Completa fecha, producto y dosis.")
       return
     }
     if (newEvento.aplicarA === "animal" && !newEvento.animalId) {
-      alert("Seleccione un animal.")
+      error("Selecciona un animal", "Elige un animal para aplicar el evento.")
       return
     }
     if (newEvento.aplicarA === "lote" && !newEvento.lote) {
-      alert("Seleccione un lote.")
+      error("Selecciona un lote", "Elige un lote para aplicar el evento.")
       return
     }
 
@@ -142,9 +144,13 @@ export function SanidadModule() {
     try {
       await createEvento(ev)
       setShowNewEvento(false)
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo registrar el evento.")
+      notify({
+        title: "Evento registrado",
+        description: `${ev.producto} agendado para ${ev.fecha}.`,
+      })
+    } catch (err) {
+      console.error(err)
+      error("No se pudo registrar el evento", "Intenta nuevamente.")
     }
   }
 

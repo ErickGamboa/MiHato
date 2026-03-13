@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -54,6 +55,7 @@ import {
   getCostaRicaNow,
   formatCRDateOnly,
 } from "@/lib/data"
+import { useFeedback } from "@/hooks/use-feedback"
 import { useDataStore } from "@/hooks/use-data-store"
 import { getAnimalDisplayLabel, getAnimalSecondaryLabel } from "@/lib/utils"
 
@@ -71,6 +73,7 @@ export function InventarioModule() {
     deleteLot,
     moveAnimalToLot,
   } = useDataStore()
+  const { notify, error } = useFeedback()
   const [search, setSearch] = useState("")
   const [filterGenero, setFilterGenero] = useState<string>("todos")
   const [filterLote, setFilterLote] = useState<string>("todos")
@@ -86,6 +89,8 @@ export function InventarioModule() {
   const [cambioLoteForm, setCambioLoteForm] = useState({ fecha: today, loteOrigen: "", loteDestino: "", motivo: "" })
   const [lotForm, setLotForm] = useState({ nombre: "", descripcion: "", capacidad: "", notas: "" })
   const [editingLotId, setEditingLotId] = useState<string | null>(null)
+  const [lotToDelete, setLotToDelete] = useState<Lot | null>(null)
+  const [confirmDeleteLoading, setConfirmDeleteLoading] = useState(false)
   const [columnFilters, setColumnFilters] = useState({
     id: "",
     apodo: "",
@@ -210,10 +215,18 @@ export function InventarioModule() {
   const handleSaveLot = async () => {
     const nombre = lotForm.nombre.trim()
     if (!nombre) {
-      alert("El nombre del lote es obligatorio.")
+      error("Nombre obligatorio", "Dale un nombre al lote para poder guardarlo.")
       return
     }
     const nombreLower = nombre.toLowerCase()
+    if (
+      lotCatalog.some(
+        (lot) => lot.persisted && lot.nombre.toLowerCase() === nombreLower && lot.id !== editingLotId,
+      )
+    ) {
+      error("Lote duplicado", "Ya existe un lote con ese nombre. Usa uno diferente.")
+      return
+    }
     const payload = {
       nombre,
       descripcion: lotForm.descripcion.trim() ? lotForm.descripcion.trim() : undefined,
@@ -222,47 +235,64 @@ export function InventarioModule() {
     }
     try {
       if (editingLotId) {
-        const duplicate = lotCatalog.some((lot) => lot.persisted && lot.nombre.toLowerCase() === nombreLower && lot.id !== editingLotId)
-        if (duplicate) {
-          alert("Ya existe un lote con ese nombre.")
-          return
-        }
         await updateLot(editingLotId, payload)
+        notify({
+          title: "Lote actualizado",
+          description: `El lote ${nombre} se guardó correctamente`,
+        })
       } else {
-        const duplicate = lotCatalog.some((lot) => lot.persisted && lot.nombre.toLowerCase() === nombreLower)
-        if (duplicate) {
-          alert("Ya existe un lote con ese nombre.")
-          return
-        }
         await createLot(payload)
+        notify({
+          title: "Lote registrado",
+          description: `El lote ${nombre} ya forma parte de la operación.`,
+        })
       }
       resetLotForm()
       setShowManageLoteDialog(false)
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo guardar el lote. Intente nuevamente.")
+    } catch (err) {
+      console.error(err)
+      error("No se pudo guardar el lote", "Intenta nuevamente más tarde.")
     }
   }
 
-  const handleDeleteLot = async (lot: Lot) => {
+  const handleDeleteLot = (lot: Lot) => {
     if (!lot.persisted || !lot.id) {
-      alert("Este lote proviene del histórico y no puede eliminarse.")
+      error("Lote del histórico", "Los lotes sin ID persistido no se pueden eliminar.")
       return
     }
     const animalesCount = animales.filter((a) => a.lote === lot.nombre).length
     if (animalesCount > 0) {
-      alert("No puede eliminar un lote con animales asignados.")
+      error(
+        "Animales asignados",
+        `Traslada los ${animalesCount} animales antes de eliminar el lote.`,
+      )
       return
     }
-    if (!confirm(`¿Eliminar el lote "${lot.nombre}"?`)) return
+    setLotToDelete(lot)
+  }
+
+  const confirmDeleteLot = async () => {
+    if (!lotToDelete?.id) {
+      setLotToDelete(null)
+      return
+    }
+    setConfirmDeleteLoading(true)
     try {
-      await deleteLot(lot.id)
-      if (newForm.lote === lot.nombre) {
+      const nombre = lotToDelete.nombre
+      await deleteLot(lotToDelete.id)
+      notify({
+        title: "Lote eliminado",
+        description: `El lote ${nombre} fue eliminado exitosamente.`,
+      })
+      if (newForm.lote === nombre) {
         setNewForm((prev) => ({ ...prev, lote: lotNames[0] ?? "" }))
       }
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo eliminar el lote.")
+    } catch (err) {
+      console.error(err)
+      error("No se pudo eliminar el lote", "Intenta nuevamente.")
+    } finally {
+      setConfirmDeleteLoading(false)
+      setLotToDelete(null)
     }
   }
 
@@ -314,7 +344,7 @@ export function InventarioModule() {
 
   const handleMoveAnimals = async () => {
     if (!cambioLoteForm.loteDestino) {
-      alert("Seleccione un lote destino.")
+      error("Destino obligatorio", "Elige un lote destino antes de mover los animales.")
       return
     }
     try {
@@ -328,32 +358,36 @@ export function InventarioModule() {
       }
       setSelectedAnimalIds([])
       handleMoveDialogChange(false)
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo mover a los animales. Intente de nuevo.")
+      notify({
+        title: "Animales movidos",
+        description: `${moveTargets.length} animal(es) reasignados a ${cambioLoteForm.loteDestino}.`,
+      })
+    } catch (err) {
+      console.error(err)
+      error("Error al mover animales", "Intenta nuevamente en unos segundos.")
     }
   }
 
   const handleCreateAnimal = async () => {
     const diio = newForm.diio.trim().toUpperCase()
     if (!diio) {
-      alert("El DIIO es obligatorio y funciona como identificador principal del animal.")
+      error("DIIO obligatorio", "Este identificador principal no puede quedar vacío.")
       return
     }
     if (!hasAvailableLots || !newForm.lote) {
-      alert("Debe crear y seleccionar un lote antes de registrar un animal.")
+      error("Crea un lote primero", "Define y selecciona un lote antes de registrar animales.")
       return
     }
     // Validación de campos obligatorios
     if (!newForm.genero || !newForm.fechaIngreso || !newForm.pesoIngreso || !newForm.precioPorKg) {
-      alert("Complete los campos obligatorios: género, fecha ingreso, peso ingreso y precio/kg.")
+      error("Campos incompletos", "Completa género, fecha de ingreso, peso y precio/kg.")
       return
     }
 
     // Validación de duplicados en Supabase
     const duplicated = await isIdentifierDuplicated(diio, newForm.idSubasta || undefined)
     if (duplicated) {
-      alert("DIIO o ID de subasta duplicado. Este identificador ya existe en el sistema.")
+      error("Identificador duplicado", "El DIIO o el ID de subasta ya están registrados.")
       return
     }
 
@@ -386,9 +420,13 @@ export function InventarioModule() {
 
     try {
       await createAnimal(newAnimal)
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo crear el animal. Intente nuevamente.")
+      notify({
+        title: "Animal registrado",
+        description: `${diio} agregado al lote ${newForm.lote}.`,
+      })
+    } catch (err) {
+      console.error(err)
+      error("No se pudo crear el animal", "Intenta nuevamente en unos segundos.")
       return
     }
     setShowNewDialog(false)
@@ -913,6 +951,21 @@ export function InventarioModule() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(lotToDelete)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setLotToDelete(null)
+          }
+        }}
+        title={`Eliminar lote ${lotToDelete?.nombre ?? ""}`}
+        description="Esta acción elimina el lote del registro y no se puede deshacer."
+        confirmLabel="Eliminar lote"
+        danger
+        onConfirm={confirmDeleteLot}
+        confirmLoading={confirmDeleteLoading}
+      />
 
       <Dialog open={showCambioLoteDialog} onOpenChange={handleMoveDialogChange}>
         <DialogContent className="sm:max-w-xl">

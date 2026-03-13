@@ -48,6 +48,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
+import { useFeedback } from "@/hooks/use-feedback"
 import { useDataStore } from "@/hooks/use-data-store"
 import { getAnimalDisplayLabel, getAnimalSecondaryLabel } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -55,6 +56,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 
 export function UtilidadModule() {
   const { animales, ventas, pesajes, eventos, raciones, insumos, loading, createVenta } = useDataStore()
+  const { error, notify } = useFeedback()
   const [showNewVenta, setShowNewVenta] = useState(false)
   const today = formatCRDateOnly(getCostaRicaNow())
   const animalesActivos = animales.filter((a) => a.estado === "activo")
@@ -264,15 +266,15 @@ export function UtilidadModule() {
     const esMuerte = newVenta.tipoSalida === "muerte"
 
     if (!newVenta.animalId || !newVenta.fechaVenta) {
-      alert("Complete los campos obligatorios: animal y fecha.")
+      error("Campos obligatorios", "Selecciona animal y fecha para registrar la salida.")
       return
     }
     if (!esMuerte && (!newVenta.pesoVenta || !newVenta.precioPorKg)) {
-      alert("Complete peso y precio/kg para registrar una venta.")
+      error("Faltan datos de venta", "Indica peso y precio por kg.")
       return
     }
     if (hasActiveRetiro(eventos, newVenta.animalId)) {
-      alert("Este animal tiene un retiro sanitario activo. No se puede registrar la salida.")
+      error("Retiro activo", "Este animal tiene un retiro sanitario activo.")
       return
     }
 
@@ -287,6 +289,12 @@ export function UtilidadModule() {
     }
     try {
       await createVenta(v)
+      const animal = animales.find((a) => a.id === newVenta.animalId)
+      const label = animal ? getAnimalDisplayLabel(animal) : newVenta.animalId
+      notify({
+        title: "Salida registrada",
+        description: `${label} registrado como ${esMuerte ? "muerte" : "venta"}.`,
+      })
       setShowNewVenta(false)
       setNewVenta({
         animalId: "",
@@ -299,9 +307,10 @@ export function UtilidadModule() {
         tipoSalida: "venta",
         causa: "",
       })
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo registrar la venta.")
+    } catch (err) {
+      console.error(err)
+      error("No se pudo registrar la salida", "Intenta nuevamente.")
+      return
     }
   }
 

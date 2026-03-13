@@ -23,6 +23,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Target, Calculator } from "lucide-react"
 import { type Escenario, formatCurrency, formatNumber } from "@/lib/data"
+import { useFeedback } from "@/hooks/use-feedback"
 import { useDataStore } from "@/hooks/use-data-store"
 
 const GDP_STEPS = [0.6, 0.8, 1.0, 1.2, 1.4]
@@ -30,6 +31,7 @@ const COST_STEPS = [2000, 2500, 3000, 3500, 4000]
 
 export function ProyeccionesModule() {
   const { escenarios, loading, createEscenario } = useDataStore()
+  const { error, notify } = useFeedback()
   const [showNew, setShowNew] = useState(false)
   const [newEsc, setNewEsc] = useState({
     nombre: "", pesoInicial: "", pesoObjetivo: "", gdpEsperado: "", costoDiario: "", precioVentaEsperado: "",
@@ -75,7 +77,7 @@ export function ProyeccionesModule() {
 
   const handleCreate = async () => {
     if (!newEsc.nombre || !newEsc.pesoInicial || !newEsc.pesoObjetivo || !newEsc.gdpEsperado || !newEsc.costoDiario || !newEsc.precioVentaEsperado) {
-      alert("Complete todos los campos.")
+      error("Campos incompletos", "Completa todos los campos para crear el escenario.")
       return
     }
     const esc = {
@@ -90,9 +92,13 @@ export function ProyeccionesModule() {
       await createEscenario(esc)
       setShowNew(false)
       setNewEsc({ nombre: "", pesoInicial: "", pesoObjetivo: "", gdpEsperado: "", costoDiario: "", precioVentaEsperado: "" })
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo crear el escenario.")
+      notify({
+        title: "Escenario creado",
+        description: `${esc.nombre} quedó listo para seguirlo en el tablero.`,
+      })
+    } catch (err) {
+      console.error(err)
+      error("No se pudo crear el escenario", "Intenta nuevamente.")
     }
   }
 

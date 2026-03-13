@@ -43,6 +43,7 @@ import {
   BarChart,
   Bar,
 } from "recharts"
+import { useFeedback } from "@/hooks/use-feedback"
 import { useDataStore } from "@/hooks/use-data-store"
 import { getAnimalDisplayLabel, getAnimalSecondaryLabel } from "@/lib/utils"
 
@@ -50,6 +51,7 @@ const SIN_RACION_VALUE = "__sin_racion__"
 
 export function PesajesModule() {
   const { animales, pesajes, raciones, loading, createPesaje } = useDataStore()
+  const { error, notify } = useFeedback()
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [filterLote, setFilterLote] = useState<string>("todos")
   const [detailAnimalId, setDetailAnimalId] = useState<string | null>(null)
@@ -195,7 +197,7 @@ export function PesajesModule() {
 
   const handleNewPesaje = async () => {
     if (!newForm.animalId || !newForm.fecha || !newForm.peso) {
-      alert("Complete todos los campos obligatorios.")
+      error("Campos obligatorios", "Selecciona animal, fecha y peso.")
       return
     }
     const newP = {
@@ -206,9 +208,14 @@ export function PesajesModule() {
     }
     try {
       await createPesaje(newP)
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo registrar el pesaje.")
+      const label = animales.find((a) => a.id === newForm.animalId)
+      notify({
+        title: "Pesaje registrado",
+        description: `${label ? getAnimalDisplayLabel(label) : newForm.animalId} guardado correctamente.`,
+      })
+    } catch (err) {
+      console.error(err)
+      error("No se pudo registrar el pesaje", "Intenta nuevamente.")
       return
     }
     setShowNewDialog(false)

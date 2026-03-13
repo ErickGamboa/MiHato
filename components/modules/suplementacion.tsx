@@ -10,16 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   Table,
   TableBody,
@@ -42,6 +33,7 @@ import {
   isAfterDate,
   formatCRDateOnly,
 } from "@/lib/data"
+import { useFeedback } from "@/hooks/use-feedback"
 import { useDataStore } from "@/hooks/use-data-store"
 
 export function SuplementacionModule() {
@@ -61,6 +53,7 @@ export function SuplementacionModule() {
     deleteInsumo,
     deleteRacion,
   } = useDataStore()
+  const { error, notify } = useFeedback()
   const [showInsumoModal, setShowInsumoModal] = useState(false)
   const [editingInsumoId, setEditingInsumoId] = useState<string | null>(null)
   const [insumoForm, setInsumoForm] = useState({
@@ -241,7 +234,7 @@ export function SuplementacionModule() {
 
   const handleSubmitInsumo = async () => {
     if (!insumoForm.nombre || !insumoForm.precio || !insumoForm.costoPorKg || !insumoForm.stock) {
-      alert("Complete los campos obligatorios.")
+      error("Campos incompletos", "Completa nombre, precio, costo y stock para continuar.")
       return
     }
     const payload = {
@@ -255,13 +248,21 @@ export function SuplementacionModule() {
     try {
       if (editingInsumoId) {
         await updateInsumo(editingInsumoId, payload)
+        notify({
+          title: "Insumo actualizado",
+          description: `${insumoForm.nombre} se guardó correctamente.`,
+        })
       } else {
         await createInsumo(payload)
+        notify({
+          title: "Insumo registrado",
+          description: `${insumoForm.nombre} ya forma parte del inventario.`,
+        })
       }
       closeInsumoModal()
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo guardar el insumo.")
+    } catch (err) {
+      console.error(err)
+      error("No se pudo guardar el insumo", "Intenta nuevamente en unos segundos.")
     }
   }
 
@@ -270,10 +271,14 @@ export function SuplementacionModule() {
     setDeleteLoading(true)
     try {
       await deleteInsumo(insumoToDelete.id)
+      notify({
+        title: "Insumo eliminado",
+        description: `Se removió ${insumoToDelete.nombre} del inventario.`,
+      })
       setInsumoToDelete(null)
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo eliminar el insumo.")
+    } catch (err) {
+      console.error(err)
+      error("No se pudo eliminar el insumo", "Intenta nuevamente en unos segundos.")
     } finally {
       setDeleteLoading(false)
     }
@@ -322,11 +327,11 @@ export function SuplementacionModule() {
 
   const handleSubmitRacion = async () => {
     if (!racionForm.nombre || !racionForm.lote) {
-      alert("Defina nombre y lote")
+      error("Datos incompletos", "Define nombre y lote para continuar.")
       return
     }
     if (racionForm.insumos.length === 0 || racionForm.insumos.some((ri) => !ri.insumoId || !ri.kgPorAnimalDia)) {
-      alert("Agregue al menos un insumo y su dosis diaria")
+      error("Faltan insumos", "Añade al menos uno con su dosis diaria.")
       return
     }
 
@@ -351,9 +356,9 @@ export function SuplementacionModule() {
       setShowNewRacion(false)
       setEditingRacionId(null)
       resetRacionForm()
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo guardar la ración.")
+    } catch (err) {
+      console.error(err)
+      error("No se pudo guardar la ración", "Intenta nuevamente.")
     }
   }
 
@@ -362,10 +367,14 @@ export function SuplementacionModule() {
     setDeleteLoading(true)
     try {
       await deleteRacion(racionToDelete.id)
+      notify({
+        title: "Ración eliminada",
+        description: `${racionToDelete.nombre} ya no figura en el listado.`,
+      })
       setRacionToDelete(null)
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo eliminar la ración.")
+    } catch (err) {
+      console.error(err)
+      error("No se pudo eliminar la ración", "Intenta nuevamente.")
     } finally {
       setDeleteLoading(false)
     }
@@ -375,12 +384,12 @@ export function SuplementacionModule() {
     if (!consumoDialog.racion) return
     const dias = Number.parseFloat(consumoDialog.dias)
     if (Number.isNaN(dias) || dias <= 0) {
-      alert("Ingrese los días aplicados")
+      error("Días inválidos", "Indica un número mayor a cero.")
       return
     }
     const animalesLote = animalesActivos.filter((a) => a.lote === consumoDialog.racion?.lote)
     if (animalesLote.length === 0) {
-      alert("No hay animales activos en este lote")
+      error("Sin animales activos", "No hay animales activos en ese lote.")
       return
     }
 
@@ -393,9 +402,13 @@ export function SuplementacionModule() {
     try {
       await Promise.all(Array.from(ajustes.entries()).map(([insumoId, delta]) => adjustInsumoStock(insumoId, delta)))
       setConsumoDialog({ racion: null, dias: "1" })
-    } catch (error) {
-      console.error(error)
-      alert("No se pudo registrar el consumo.")
+      notify({
+        title: "Consumo registrado",
+        description: `${dias} día(s) aplicados a ${consumoDialog.racion.lote}.`,
+      })
+    } catch (err) {
+      console.error(err)
+      error("No se pudo registrar el consumo", "Intenta nuevamente.")
     }
   }
 
@@ -917,42 +930,30 @@ export function SuplementacionModule() {
           </div>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={!!racionToDelete} onOpenChange={(open) => {
-        if (!open && !deleteLoading) setRacionToDelete(null)
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar ración</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ración se eliminará del catálogo y dejará de descontar inventario. Esta acción no se puede deshacer.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteLoading} onClick={() => setRacionToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction disabled={deleteLoading} onClick={confirmDeleteRacion} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <AlertDialog open={!!insumoToDelete} onOpenChange={(open) => {
-        if (!open && !deleteLoading) setInsumoToDelete(null)
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar insumo</AlertDialogTitle>
-            <AlertDialogDescription>
-              El insumo desaparecerá del catálogo y las raciones que lo usan deberán reconfigurarse. ¿Deseas continuar?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteLoading} onClick={() => setInsumoToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction disabled={deleteLoading} onClick={confirmDeleteInsumo} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!racionToDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleteLoading) setRacionToDelete(null)
+        }}
+        title={`Eliminar ración ${racionToDelete?.nombre ?? ""}`}
+        description="Esta ración se eliminará del catálogo y dejará de descontar inventario. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar ración"
+        danger
+        onConfirm={confirmDeleteRacion}
+        confirmLoading={deleteLoading}
+      />
+      <ConfirmDialog
+        open={!!insumoToDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleteLoading) setInsumoToDelete(null)
+        }}
+        title={`Eliminar insumo ${insumoToDelete?.nombre ?? ""}`}
+        description="El insumo desaparecerá del catálogo y las raciones que lo usan deberán reconfigurarse. ¿Deseas continuar?"
+        confirmLabel="Eliminar insumo"
+        danger
+        onConfirm={confirmDeleteInsumo}
+        confirmLoading={deleteLoading}
+      />
     </div>
   )
 }
