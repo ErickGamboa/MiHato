@@ -73,7 +73,7 @@ export function AppShell({ activeModule, onModuleChange, children }: AppShellPro
   }, [supabase])
 
   return (
-    <div className="relative flex min-h-screen min-w-0 bg-background text-foreground">
+    <div className="relative flex h-screen min-w-0 overflow-hidden bg-background text-foreground">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -157,7 +157,7 @@ export function AppShell({ activeModule, onModuleChange, children }: AppShellPro
       </aside>
 
       {/* Main content */}
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
         {/* Top bar */}
         <header className="flex h-14 items-center gap-4 border-b bg-card/95 px-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:px-6">
           <Button
